@@ -21,6 +21,24 @@ own anywhere Ruby runs.
 - `OKF::TemplateAssociation` — the association DSL ported from Rails
   (has-many / has-one / belongs-to with as / inverse / dependent / through /
   ordered / optional / polymorphic), serialised to and from `<link rel="okf:…">`.
+- `OKF::Note` — a plain value object carrying a note's attributes; what the
+  Repository creates and renders when a host has no model of its own.
+
+## The seams
+
+Three narrow interfaces let a host swap storage and indexing without touching the
+format:
+
+- `OKF::Store` — dumb byte storage keyed by uuid: `read` / `write` / `delete` /
+  `exist?` / `each_key`. Ships `Store::Filesystem` (file-is-truth, the default)
+  and `Store::Memory`.
+- `OKF::Index` — a derived, rebuildable view over a store: `resolve`, `search`,
+  `backlinks` (for rev mirrors), `tagged`, `members` (a collection in order).
+  In-memory default; a host with a database provides its own.
+- `OKF::Repository` — the one deep facade: `create` / `find` / `update` /
+  `delete` / `search` / `reconcile`. It assigns identity, derives slugs, renders
+  documents, materialises rev mirrors on linked notes, and applies
+  dependent-delete policies — composing a Store and an Index underneath.
 
 ## The note interface
 
