@@ -1,0 +1,59 @@
+# okf-html-rails
+
+A mountable Rails engine that embeds [OKF/HTML](https://br3nt.github.io/okf/)
+notes in a host application. It wires the pure [`okf-html`](../okf-html) core into
+Rails so a host gets notes, links, tags, collections, templates and the
+reconciler by including one concern and (optionally) mounting one engine.
+
+## Install
+
+```ruby
+# Gemfile
+gem "okf-html-rails", git: "https://github.com/br3nt/okf-html"
+```
+
+## Give a model notes
+
+Include the container concern in whatever owns notes — a user, a workspace node,
+anything:
+
+```ruby
+class Workspace < ApplicationRecord
+  include OKF::Container
+end
+
+workspace.okf.create(title: "Idea", content: "<p>…</p>")
+workspace.okf.find(uuid)
+workspace.okf.search("idea")
+workspace.okf.update(uuid, title: "Better idea")
+workspace.okf.delete(uuid, dependent: :nullify)
+```
+
+Each container gets its own filesystem store, namespaced by class and id, with a
+derived index over it. The files are the truth (SPEC §1).
+
+## Configure
+
+```ruby
+# config/initializers/okf.rb
+OKF.configure do |c|
+  c.store_root = Rails.root.join("storage/okf")
+  # Or take over storage entirely (e.g. one datastore for all containers):
+  # c.store_builder = ->(container) { MyStore.new(container) }
+end
+```
+
+## Mount (controllers + editor UI)
+
+```ruby
+# config/routes.rb
+mount OKF::Rails::Engine => "/okf"
+```
+
+The engine isolates the `OKF` namespace. Configuration and the container
+association ship now; the controllers, routes and the JST/Tiptap editor are being
+ported from the reference application (notes_app) and land in a following phase.
+
+## Status
+
+Tracks the spec version (spec 0.1 → gem 0.1.x). Not on RubyGems yet.

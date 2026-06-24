@@ -1,0 +1,7 @@
+source "https://rubygems.org"
+
+gemspec
+
+# The pure core is a sibling path gem during development.
+gem "okf-html", path: "../okf-html"
+gem "rake"
