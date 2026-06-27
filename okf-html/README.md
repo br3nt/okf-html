@@ -63,6 +63,13 @@ name is implied by its first line keeps an empty title input instead of
 persisting the derived name as an explicit one. A host that exposes notes over an
 API should send both.
 
+## Further reading
+
+- `SPEC.md` — the OKF/HTML format itself (canonical copy here in the repo).
+- `doc/hypermedia.md` — how to build on OKF: serve HTML, not JSON. "This is the way."
+- `doc/implementing.md` — porting OKF to other languages/frameworks + the
+  conformance checklist.
+
 ## Status
 
 Tracks the spec version (spec 0.1 → gem 0.1.x). Not on RubyGems yet; consumed as

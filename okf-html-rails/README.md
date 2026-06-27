@@ -60,6 +60,16 @@ The engine isolates the `OKF` namespace. Configuration and the container
 association ship now; the controllers, routes and the JST/Tiptap editor are being
 ported from the reference application (notes_app) and land in a following phase.
 
+## Build with hypermedia, not JSON
+
+OKF is HTML all the way down — including over the wire. Serve notes, lists of
+notes, and the vocabulary as HTML (a list of notes is a collection §8, which is
+already an HTML document); use Turbo for mutations and live updates; reach for
+JSON only at a deliberate external API seam, behind content negotiation. The
+patterns — index-as-collection, autocomplete-as-fragment, vocabulary-as-markup —
+are written up in [`doc/hypermedia.md`](../doc/hypermedia.md). When the editor is
+packaged, its lists ship as HTML fragments, not a `*.json` API.
+
 ## Status
 
 Tracks the spec version (spec 0.1 → gem 0.1.x). Not on RubyGems yet.
