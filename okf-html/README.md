@@ -36,9 +36,13 @@ format:
   `backlinks` (for rev mirrors), `tagged`, `members` (a collection in order).
   In-memory default; a host with a database provides its own.
 - `OKF::Repository` — the one deep facade: `create` / `find` / `update` /
-  `delete` / `search` / `reconcile`. It assigns identity, derives slugs, renders
-  documents, materialises rev mirrors on linked notes, and applies
-  dependent-delete policies — composing a Store and an Index underneath.
+  `delete` / `all` (alias `list`) / `search` / `reconcile`. It assigns identity,
+  derives slugs, renders documents, materialises rev mirrors on linked notes, and
+  applies dependent-delete policies — composing a Store and an Index underneath.
+  `all` returns every note, most-recently-updated first; `search("")` /
+  `search(nil)` returns the same, so one call can both search and list. For a
+  cheap listing without bodies, read the index entries directly — each
+  `Index::Entry` carries `created_at` / `updated_at`.
 
 ## The note interface
 
@@ -47,6 +51,17 @@ format:
 and (optionally) `template?`, `template_uuid`, `metadata`, `links`,
 `associations`, `incoming_links`. Anything providing those works — there is no
 ActiveRecord dependency.
+
+### `title` vs `effective_title`
+
+These are deliberately different and easy to confuse. `title` is the raw,
+explicit title — and it is blank when the note has no heading and takes its name
+from the first line of the body. `effective_title` is the derived display name
+(explicit title, else the first line, else "Untitled"). Use `effective_title`
+for list and read UIs; bind the edit field to the raw `title` so a note whose
+name is implied by its first line keeps an empty title input instead of
+persisting the derived name as an explicit one. A host that exposes notes over an
+API should send both.
 
 ## Status
 

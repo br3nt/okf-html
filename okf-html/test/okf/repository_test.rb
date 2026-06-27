@@ -63,6 +63,28 @@ class OKF::RepositoryTest < Minitest::Test
     assert_equal [ "Findme" ], @repo.search("special").map(&:title)
   end
 
+  def test_all_returns_full_notes_most_recently_updated_first
+    @clock = Time.utc(2026, 1, 1, 10, 0, 0)
+    @repo.create(title: "Oldest", content: "<p>old body</p>")
+    @clock = Time.utc(2026, 1, 2, 10, 0, 0)
+    @repo.create(title: "Newest", content: "<p>new body</p>")
+    notes = @repo.all
+    assert_equal %w[Newest Oldest], notes.map(&:title)
+    assert_equal "<p>new body</p>", notes.first.content # full note carries its body
+  end
+
+  def test_all_is_aliased_as_list
+    @repo.create(title: "One")
+    assert_equal @repo.all.map(&:uuid), @repo.list.map(&:uuid)
+  end
+
+  def test_blank_search_lists_all_notes
+    @repo.create(title: "A")
+    @repo.create(title: "B")
+    assert_equal @repo.all.map(&:uuid), @repo.search("").map(&:uuid)
+    assert_equal 2, @repo.search(nil).size
+  end
+
   def test_containing_collections_pager
     a = @repo.create(title: "Routing")
     b = @repo.create(title: "Controllers")

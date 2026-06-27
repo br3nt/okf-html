@@ -78,8 +78,24 @@ module OKF
       true
     end
 
-    # Full-text-ish search over the index, returning notes.
-    def search(query) = @index.search(query).map { |entry| find(entry.uuid) }
+    # Every note, most-recently-updated first. The facade's list view: a host
+    # renders its notes stack from this without reaching past the facade into the
+    # index. For a cheap listing (no body) a host can read the index entries —
+    # which now carry created_at/updated_at — directly instead.
+    def all
+      @index.all
+            .sort_by { |entry| entry.updated_at || entry.created_at || Time.at(0) }
+            .reverse
+            .filter_map { |entry| find(entry.uuid) }
+    end
+    alias list all
+
+    # Full-text-ish search over the index, returning notes. A blank query returns
+    # every note (search doubles as list-all), still ordered by recency.
+    def search(query)
+      return all if query.to_s.strip.empty?
+      @index.search(query).map { |entry| find(entry.uuid) }
+    end
 
     # The collections this note belongs to, each with the member before/after it
     # derived from that collection's list (SPEC §8). Drives a member's pager.

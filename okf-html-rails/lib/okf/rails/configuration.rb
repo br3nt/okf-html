@@ -29,9 +29,12 @@ module OKF
 
       private
 
+      # Segmented by Rails.env so dev/test/prod never share files. Rails.root is
+      # identical across environments, so an un-namespaced default would have
+      # them all reading and writing the same store.
       def default_store_root
         if defined?(::Rails) && ::Rails.respond_to?(:root) && ::Rails.root
-          ::Rails.root.join("storage/okf")
+          ::Rails.root.join("storage/okf", ::Rails.env.to_s)
         else
           File.join(Dir.pwd, "storage/okf")
         end

@@ -23,6 +23,20 @@ class OKF::IndexTest < Minitest::Test
     assert_empty @index.search("nonexistent")
   end
 
+  def test_blank_query_lists_everything
+    assert_equal @index.all.map(&:uuid), @index.search("").map(&:uuid)
+    assert_equal @index.all.map(&:uuid), @index.search(nil).map(&:uuid)
+  end
+
+  def test_entries_carry_timestamps_for_cheap_listing
+    t = Time.utc(2026, 6, 1, 9, 0, 0)
+    @index.add(doc(uuid: "ut", slug: "stamped", title: "Stamped",
+      created_at: t, updated_at: t, content: "<p>x</p>"))
+    entry = @index.resolve("ut")
+    assert_equal t, entry.created_at
+    assert_equal t, entry.updated_at
+  end
+
   def test_backlinks_are_typed_inbound_edges_for_rev_mirrors
     # Both Beta (a prose chapter link) and the Guide (a list-item chapter link)
     # point at Alpha, so it has two typed inbound edges to mirror (§7).

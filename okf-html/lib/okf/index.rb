@@ -22,7 +22,8 @@ module OKF
     # are kept as authored and resolved lazily, so a member or link target that
     # arrives later still resolves once it is indexed.
     Entry = Struct.new(:uuid, :slug, :title, :effective_title, :tags, :pinned,
-                       :template, :body, :outgoing, :member_hrefs, keyword_init: true)
+                       :template, :body, :created_at, :updated_at, :outgoing,
+                       :member_hrefs, keyword_init: true)
 
     def initialize = reset
 
@@ -51,6 +52,7 @@ module OKF
         uuid: uuid, slug: parsed.slug, title: parsed.title,
         effective_title: note.effective_title, tags: parsed.tag_names,
         pinned: parsed.pinned?, template: parsed.template?, body: parsed.body,
+        created_at: parsed.created_at, updated_at: parsed.updated_at,
         outgoing: outgoing_links(fragment), member_hrefs: member_hrefs(fragment)
       )
       # Drop a previous slug mapping for this uuid (a rename) so the old slug
@@ -75,9 +77,11 @@ module OKF
 
     def all = @entries.values
 
+    # A blank query lists everything, so search doubles as list-all (the host
+    # asked for this so one endpoint can both search and render the full stack).
     def search(query)
       terms = query.to_s.scan(/[[:word:]]+/).map(&:downcase)
-      return [] if terms.empty?
+      return all if terms.empty?
       all.select { |e|
         haystack = "#{e.effective_title} #{strip_tags(e.body)}".downcase
         terms.all? { |t| haystack.include?(t) }

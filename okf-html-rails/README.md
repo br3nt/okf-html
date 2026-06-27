@@ -43,6 +43,12 @@ OKF.configure do |c|
 end
 ```
 
+You usually don't need to set `store_root` at all. The default is
+`Rails.root.join("storage/okf", Rails.env)` — segmented by environment so dev,
+test and production never share files. If you set it yourself, include the
+environment (or another per-environment discriminator) so your environments stay
+isolated.
+
 ## Mount (controllers + editor UI)
 
 ```ruby
