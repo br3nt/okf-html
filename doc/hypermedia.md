@@ -1,11 +1,16 @@
 # Hypermedia, not JSON — the OKF way to build on this
 
 OKF/HTML's thesis is that HTML *is* the knowledge format. The same thesis applies
-over the wire. The canonical representation of a note, of a list of notes, and of
-the vocabulary is HTML — hypermedia a browser already knows how to render and a
-client already knows how to follow. Reach for JSON only at a deliberate, external
-seam (a documented data API for third-party machine consumers). For your own
-application's UI, don't introduce JSON at all.
+over the wire. The canonical — and only — representation of a note, of a list of
+notes, and of the vocabulary is HTML: hypermedia a browser already knows how to
+render and a client already knows how to follow. There is no JSON in OKF.
+
+HTML *is* the data contract. A client that wants structured data treats the
+response as the XML-family document it is and extracts what it needs — by
+selector, by `rel`, by `[itemprop]`/`data-*` — exactly as cheaply as it would
+parse JSON, and with the links, types, and structure already in the payload. JSON
+would only re-encode, more poorly, what the HTML already states. So we don't reach
+for it.
 
 This is not a style preference. A note is already hypermedia: its links are the
 graph. A *list* of notes is already a first-class OKF object: a collection (§8),
@@ -82,18 +87,21 @@ navigation — rendering the autocomplete dropdown, building inline link/tag chi
 It consumes server-sent HTML fragments; it does not justify a JSON API. If you
 find JST rendering from JSON, that's the smell — feed it the fragment instead.
 
-## When JSON is actually fine
+## "But an external consumer wants a data contract"
 
-- A documented, versioned **external** API whose consumers are non-browser
-  programs that explicitly want a data contract. Even then, prefer HTTP content
-  negotiation (serve HTML by default, JSON on `Accept: application/json`) so the
-  hypermedia representation stays primary.
-- Never for your own front-end's note/list/graph rendering.
+HTML is the data contract. A non-browser consumer parses the document and reads
+the same structure a browser would render — links carry their `rel`, the head
+carries identity and metadata, list items carry membership. Every language has an
+HTML parser; extracting `document.querySelectorAll("a[rel=chapter]")`-shaped data
+is no harder than walking a JSON tree, and it doesn't require us to define,
+version, and keep-in-sync a second representation. If a consumer needs more
+machine structure, add microdata/`data-*` to the HTML — don't fork to JSON.
 
 ## Checklist
 
-- [ ] No `*.json` endpoint backs a view you also render in HTML.
+- [ ] No `*.json` endpoint anywhere — HTML is the only representation.
 - [ ] "List of notes" is a collection document, not a JSON array.
-- [ ] Editor lists (notes, vocabulary, tags) are HTML fragments.
-- [ ] Mutations return the rendered note HTML; Turbo swaps it.
-- [ ] JSON, if present at all, sits behind content negotiation at an external seam.
+- [ ] Editor lists (notes, vocabulary, tags, templates) are HTML fragments.
+- [ ] Mutations send form params and return the rendered note HTML; Turbo swaps it.
+- [ ] External/machine consumers parse the HTML; extra structure goes in
+      microdata/`data-*`, never a JSON fork.
