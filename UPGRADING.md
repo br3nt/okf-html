@@ -1,15 +1,23 @@
-# Upgrading agent_app to okf-html 0.1.1
+# Upgrading agent_app to okf-html 0.1.3
 
-This release adds the workspace-global SQL index, `move()`, and the packaged
-note editor. Here's how to adopt them. The one hard rule throughout: everything
-over the wire is HTML, never JSON (see `doc/hypermedia.md`).
+These releases add the workspace-global SQL index, `move()`, the packaged note
+editor (0.1.1), the graph visualiser + filter language (0.1.2), and JST
+components for declarative embedding (0.1.3). Here's how to adopt them. The one
+hard rule throughout: everything over the wire is HTML, never JSON (see
+`doc/hypermedia.md`).
+
+If you use JST (v0.4.1+), you can skip the imperative mount calls below and embed
+declaratively (hypertext as the API): render `<%= render "okf/components" %>`
+once, then write `<okf-editor note-uuid=… update-url=… wikilinks-url=…
+vocabulary-url=…>` and `<okf-graph graph-url=… filter=…>`. See the engine README,
+"Embed declaratively with JST components". The imperative API below still works.
 
 ## 0. Pin v0.1.1
 
 ```ruby
 # Gemfile
-gem "okf-html",       git: "https://github.com/br3nt/okf-html", glob: "okf-html/*.gemspec",       tag: "v0.1.1"
-gem "okf-html-rails", git: "https://github.com/br3nt/okf-html", glob: "okf-html-rails/*.gemspec", tag: "v0.1.1"
+gem "okf-html",       git: "https://github.com/br3nt/okf-html", glob: "okf-html/*.gemspec",       tag: "v0.1.3"
+gem "okf-html-rails", git: "https://github.com/br3nt/okf-html", glob: "okf-html-rails/*.gemspec", tag: "v0.1.3"
 ```
 
 `bundle install`. Loading the gem registers the engine; its initializers add the
