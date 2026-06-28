@@ -1,0 +1,68 @@
+/* OKF graph visualiser. Self-contained; the colour tokens are zero-specificity
+   defaults (:where) so a host theme overrides them. */
+:where(:root) {
+  --ink: #26241f;
+  --muted: #6b675e;
+  --border: #e6e1d6;
+  --highlight: #f2e6b8;
+  --highlight-soft: #faf3d8;
+  --accent: #b08400;
+  --radius: 6px;
+}
+
+.okf-graph-view { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.okf-graph-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.45rem;
+}
+.okf-graph-input {
+  flex: 1;
+  min-width: 14rem;
+  border: none;
+  outline: none;
+  font: inherit;
+  font-size: 0.85rem;
+  background: transparent;
+}
+.okf-graph-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: var(--highlight-soft);
+  border: 1px solid var(--highlight);
+  border-radius: var(--radius);
+  padding: 0.05rem 0.3rem;
+  font-size: 0.78rem;
+}
+.okf-graph-chip button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0;
+}
+.okf-graph-chip button:hover { color: var(--ink); }
+
+.okf-graph-status { font-size: 0.78rem; color: var(--muted); }
+
+.okf-graph-canvas {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fffdf8;
+  width: 100%;
+}
+.okf-graph-link { stroke: var(--border); stroke-width: 1.2; }
+.okf-graph-rel { fill: var(--muted); font-size: 9px; pointer-events: none; }
+.okf-graph-node { cursor: pointer; }
+.okf-graph-node circle { fill: var(--highlight); stroke: var(--accent); stroke-width: 1.2; }
+.okf-graph-node.is-pinned circle { fill: var(--accent); }
+.okf-graph-node text { fill: var(--ink); font-size: 11px; }
+.okf-graph-node:hover circle { stroke-width: 2.5; }

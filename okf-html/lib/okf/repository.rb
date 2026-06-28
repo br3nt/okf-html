@@ -109,6 +109,19 @@ module OKF
       @index.search(query, scope: scope).map { |entry| find(entry.uuid) }
     end
 
+    # Run a filter query (issue #2 — see OKF::Filter) and return the matching
+    # index entries in scope. The host passes the raw query string from its filter
+    # bar; the same query serves a list or the graph.
+    def filter(query, scope: default_scope)
+      Filter.parse(query).apply(@index, scope: scope)
+    end
+
+    # The knowledge graph for a filter query, ready to serialise as HTML for the
+    # visualiser: node.okf.graph(params[:filter]).to_html.
+    def graph(query = "", scope: default_scope)
+      Graph.new(@index, filter(query, scope: scope))
+    end
+
     # Notes carrying +tag+ in scope, most-recently-updated first.
     def tagged(tag, scope: default_scope)
       @index.tagged(tag, scope: scope)

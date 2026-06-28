@@ -122,6 +122,45 @@ JSON. A host endpoint must accept the form PATCH and respond with HTML carrying 
 `[data-slug]` (see notes_app's `notes/_saved` partial). The engine isolates the
 `OKF` namespace; controllers/routes are still host-owned.
 
+## The graph visualiser (no-build engine asset)
+
+The link graph is the knowledge graph, so the engine ships a visualiser — a
+vanilla force-directed SVG renderer (no dependencies) with a GitLab-style filter
+bar. The filter language is pure Ruby (`OKF::Filter`), so the same query drives
+the graph, a list, or a headless caller.
+
+A host wires one route that serves the subgraph as HTML:
+
+```ruby
+# routes: get "/graph", to: "graphs#show"
+class GraphsController < ApplicationController
+  def show
+    render html: current_node.okf.graph(params[:filter]).to_html.html_safe
+  end
+end
+```
+
+```erb
+<%= stylesheet_link_tag "okf/graph" %>
+<div id="okf-graph"></div>
+<script type="module">
+  import { mountGraph } from "okf/graph"
+  window.OKF.mountGraph(document.getElementById("okf-graph"), { graphUrl: "/graph", filter: "tag:plan" })
+</script>
+```
+
+`mountGraph` fetches `graphUrl?filter=<query>`, parses the `.graph-node` /
+`.graph-edge` markup, lays it out, labels edges by `rel`, and navigates to
+`/n/<uuid>` on click (override with `onSelect`). The filter bar turns tokens into
+removable chips and reloads on change.
+
+The query language (`OKF::Filter.parse`): `tag:x` (`tag:in:a,b`, `tag:none:a,b`),
+`rel:x` (outgoing), `inbound:x`, `collection:x`, `pinned:`, `template:`,
+`created:`/`updated:` (`>`, `<`, `A..B`, `last:Nd`, a bare day), `text:` (the
+default keyword), `fuzzy:` (typo-tolerant); tokens AND, and any is negated with a
+leading `-`/`!`. It runs in any scope (a node, a subtree id-set, or `:global`),
+so the same bar works per-node and workspace-wide.
+
 ## Build with hypermedia, not JSON
 
 OKF is HTML all the way down — including over the wire. There is no JSON: HTML is

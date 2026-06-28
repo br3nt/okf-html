@@ -23,6 +23,10 @@ own anywhere Ruby runs.
   ordered / optional / polymorphic), serialised to and from `<link rel="okf:…">`.
 - `OKF::Note` — a plain value object carrying a note's attributes; what the
   Repository creates and renders when a host has no model of its own.
+- `OKF::Filter` / `OKF::Graph` — a GitLab-style filter query over the index and a
+  builder that turns a filtered set into nodes + typed edges, serialised as HTML
+  for the graph visualiser. The same query drives the graph, a list, or a
+  headless caller.
 
 ## The seams
 

@@ -3,6 +3,7 @@
 # vendored Tiptap/ProseMirror ESM are served from the engine's asset paths.
 
 pin "okf/editor", to: "okf/editor.js"
+pin "okf/graph", to: "okf/graph.js"
 
 pin "@tiptap/core", to: "@tiptap--core.js" # @3.27.1
 pin "@tiptap/starter-kit", to: "@tiptap--starter-kit.js" # @3.26.0

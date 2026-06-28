@@ -37,6 +37,19 @@ class OKF::RepositoryScopeTest < Minitest::Test
     assert_equal 2, @node1.all(scope: %w[node-1 node-2]).size
   end
 
+  def test_filter_and_graph_run_a_query_within_scope
+    @node1.create(title: "Routing", content: %(<p><a rel="chapter" href="/n/views">v</a></p>))
+    @node1.create(title: "Views", content: "<p>leaf</p>")
+    @node2.create(title: "Other", content: "<p>routing word but elsewhere</p>")
+
+    titles = @node1.filter("tag:none:x").map(&:effective_title).sort
+    assert_equal %w[Routing Views], titles # scoped to node-1
+
+    graph = @node1.graph("")
+    assert_equal 2, graph.nodes.size
+    assert_equal 1, graph.edges.size # Routing -> Views (chapter), within the set
+  end
+
   def test_move_rehomes_a_note_without_changing_identity
     note = @node1.create(title: "Movable", content: "<p>body</p>")
     uuid = note.uuid

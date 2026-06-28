@@ -4,6 +4,19 @@ Both gems version together and track the spec: the minor follows SPEC.md's
 version (spec 0.1 → 0.1.x), with patch releases for gem iterations. Format roughly
 follows Keep a Changelog.
 
+## [0.1.2] — 2026-06-28
+
+### Added
+
+- The graph visualiser (issue #2). `OKF::Filter` parses a GitLab-style query
+  (`tag:`/`tag:in:`/`tag:none:`, `rel:`, `inbound:`, `collection:`, `pinned:`,
+  `template:`, `created:`/`updated:` with `>`/`<`/`A..B`/`last:Nd`/bare-day,
+  `text:`, `fuzzy:`; tokens AND, negate with `-`/`!`) over any index in any scope.
+  `OKF::Graph` builds nodes + closed typed edges and serialises the subgraph as
+  HTML. `Repository#filter` / `#graph` are the ergonomic entry points. The engine
+  ships `okf/graph` — a no-build, dependency-free force-directed SVG renderer with
+  a chip filter bar — plus `okf/graph.css`. Browser-verified.
+
 ## [0.1.1] — 2026-06-28
 
 ### Added
@@ -67,5 +80,6 @@ embed notes.
   checklist.
 - `INTEGRATION_BRIEF.md` — for new consumers.
 
+[0.1.2]: https://github.com/br3nt/okf-html/releases/tag/v0.1.2
 [0.1.1]: https://github.com/br3nt/okf-html/releases/tag/v0.1.1
 [0.1.0]: https://github.com/br3nt/okf-html/releases/tag/v0.1.0
