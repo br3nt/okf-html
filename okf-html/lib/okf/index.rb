@@ -22,8 +22,8 @@ module OKF
     # are kept as authored and resolved lazily, so a member or link target that
     # arrives later still resolves once it is indexed.
     Entry = Struct.new(:uuid, :slug, :title, :effective_title, :tags, :pinned,
-                       :template, :body, :created_at, :updated_at, :outgoing,
-                       :member_hrefs, keyword_init: true)
+                       :template, :body, :created_at, :updated_at, :container,
+                       :outgoing, :member_hrefs, keyword_init: true)
 
     def initialize = reset
 
@@ -40,19 +40,23 @@ module OKF
       self
     end
 
-    # Index (or re-index) a single document's html.
-    def add(html)
+    # Index (or re-index) a single document's html. +container+ records which
+    # scope the note belongs to (the host's node/owner id), so the same index can
+    # answer per-node, subtree, and global queries; nil means unscoped.
+    def add(html, container: nil)
       return if html.to_s.empty?
       parsed = Document.parse(html)
       uuid = parsed.uuid
       return if uuid.blank?
       note = Note.from_parsed(parsed)
       fragment = Nokogiri::HTML5.fragment(parsed.body)
+      container = @entries[uuid].container if container.nil? && @entries[uuid]
       entry = Entry.new(
         uuid: uuid, slug: parsed.slug, title: parsed.title,
         effective_title: note.effective_title, tags: parsed.tag_names,
         pinned: parsed.pinned?, template: parsed.template?, body: parsed.body,
         created_at: parsed.created_at, updated_at: parsed.updated_at,
+        container: container,
         outgoing: outgoing_links(fragment), member_hrefs: member_hrefs(fragment)
       )
       # Drop a previous slug mapping for this uuid (a rename) so the old slug
@@ -75,22 +79,26 @@ module OKF
       @entries[id] || @entries[@by_slug[id]]
     end
 
-    def all = @entries.values
+    # All entries in +scope+. Scope is nil / :all / :global for everything, or an
+    # array of container ids to narrow to one node or a node's subtree (the host
+    # passes the descendant id-set; the library never walks the host's tree).
+    def all(scope: :all) = scoped(@entries.values, scope)
 
-    # A blank query lists everything, so search doubles as list-all (the host
-    # asked for this so one endpoint can both search and render the full stack).
-    def search(query)
+    # A blank query lists everything in scope, so search doubles as list-all (the
+    # host asked for this so one endpoint can both search and render the stack).
+    def search(query, scope: :all)
+      base = all(scope: scope)
       terms = query.to_s.scan(/[[:word:]]+/).map(&:downcase)
-      return all if terms.empty?
-      all.select { |e|
+      return base if terms.empty?
+      base.select { |e|
         haystack = "#{e.effective_title} #{strip_tags(e.body)}".downcase
         terms.all? { |t| haystack.include?(t) }
       }
     end
 
-    def tagged(tag)
+    def tagged(tag, scope: :all)
       name = tag.to_s
-      all.select { |e| e.tags.include?(name) }
+      all(scope: scope).select { |e| e.tags.include?(name) }
     end
 
     # Inbound typed edges to the note, as Backlinks (rel + source slug) ready for
@@ -129,7 +137,21 @@ module OKF
       seq[i - 1] if i && i.positive?
     end
 
+    # The distinct tags present in +scope+ — the tag namespace a host renders
+    # (app-wide at :global, or narrowed to a node / subtree).
+    def all_tags(scope: :all)
+      all(scope: scope).flat_map(&:tags).uniq.sort
+    end
+
     private
+
+    # Narrow a list of entries to a scope: nil / :all / :global keeps everything;
+    # an array (or single id) keeps entries whose container is in the set.
+    def scoped(entries, scope)
+      return entries if scope.nil? || scope == :all || scope == :global
+      set = Array(scope)
+      entries.select { |e| set.include?(e.container) }
+    end
 
     def outgoing_links(fragment)
       fragment.css("a[href^='/n/']").map { |a| { rel: a["rel"].to_s.split.first, href: a["href"] } }

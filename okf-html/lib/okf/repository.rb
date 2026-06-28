@@ -19,13 +19,20 @@ module OKF
 
     attr_reader :store, :index
 
-    # +clock+ is injectable so timestamps are deterministic in tests.
-    def initialize(store:, index: Index.new, clock: -> { Time.now })
+    # +clock+ is injectable so timestamps are deterministic in tests. +container+
+    # is the scope notes created here belong to (the host's node/owner id); it is
+    # stamped on each note in the index and is the default scope for queries. nil
+    # leaves the repository unscoped (one store, one implicit scope).
+    def initialize(store:, index: Index.new, clock: -> { Time.now }, container: nil)
       @store = store
       @index = index
       @clock = clock
+      @container = container
       @index.rebuild_from(@store)
     end
+
+    # The default query scope: this repository's container, or :all when unscoped.
+    def default_scope = @container ? [ @container ] : :all
 
     def create(attrs = {})
       note = Note.new(attrs)
@@ -78,23 +85,44 @@ module OKF
       true
     end
 
-    # Every note, most-recently-updated first. The facade's list view: a host
-    # renders its notes stack from this without reaching past the facade into the
-    # index. For a cheap listing (no body) a host can read the index entries —
-    # which now carry created_at/updated_at — directly instead.
-    def all
-      @index.all
+    # Every note in scope, most-recently-updated first. The facade's list view: a
+    # host renders its notes stack from this without reaching past the facade into
+    # the index. For a cheap listing (no body) a host can read the index entries —
+    # which carry created_at/updated_at — directly instead. Scope defaults to this
+    # repository's container; pass :global for the whole workspace or an id-set for
+    # a node's subtree.
+    def all(scope: default_scope)
+      @index.all(scope: scope)
             .sort_by { |entry| entry.updated_at || entry.created_at || Time.at(0) }
             .reverse
             .filter_map { |entry| find(entry.uuid) }
     end
     alias list all
 
-    # Full-text-ish search over the index, returning notes. A blank query returns
-    # every note (search doubles as list-all), still ordered by recency.
-    def search(query)
-      return all if query.to_s.strip.empty?
-      @index.search(query).map { |entry| find(entry.uuid) }
+    # Full-text-ish search over the index in scope, returning notes. A blank query
+    # returns every note (search doubles as list-all), still ordered by recency.
+    def search(query, scope: default_scope)
+      return all(scope: scope) if query.to_s.strip.empty?
+      @index.search(query, scope: scope).map { |entry| find(entry.uuid) }
+    end
+
+    # Notes carrying +tag+ in scope, most-recently-updated first.
+    def tagged(tag, scope: default_scope)
+      @index.tagged(tag, scope: scope)
+            .sort_by { |entry| entry.updated_at || entry.created_at || Time.at(0) }
+            .reverse
+            .filter_map { |entry| find(entry.uuid) }
+    end
+
+    # Re-home a note to another container. Identity and the link graph are
+    # untouched — only the note's scope changes — because everything is keyed by
+    # uuid. With a partitioned store the host's store handles relocating the bytes.
+    def move(identifier, to:)
+      entry = @index.resolve(identifier)
+      return nil unless entry
+      @store.move(entry.uuid, to: to) if @store.respond_to?(:move)
+      @index.add(@store.read(entry.uuid), container: to)
+      find(entry.uuid)
     end
 
     # The collections this note belongs to, each with the member before/after it
@@ -132,7 +160,7 @@ module OKF
     def persist(note, previous_targets:)
       note.incoming_links = @index.backlinks(note.uuid)
       @store.write(note.uuid, Document.render(note))
-      @index.add(@store.read(note.uuid))
+      @index.add(@store.read(note.uuid), container: @container)
       refresh(target_uuids(note) | previous_targets, except: note.uuid)
     end
 
