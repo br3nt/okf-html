@@ -49,16 +49,78 @@ test and production never share files. If you set it yourself, include the
 environment (or another per-environment discriminator) so your environments stay
 isolated.
 
-## Mount (controllers + editor UI)
+## The workspace-global SQL index
+
+The default index is in-memory and per-container. For cross-node features — a
+node's subtree bundle, the app-wide tag namespace, cross-node search, and moving
+notes between nodes — switch to the SQL-backed index:
+
+```bash
+bin/rails g okf:install   # migration (okf_notes/okf_edges/okf_taggings) + initializer
+bin/rails db:migrate
+```
+
+```ruby
+# config/initializers/okf.rb
+OKF.configure do |c|
+  c.index_builder = ->(_container) { OKF::Rails::Index.new }
+  c.store_builder = ->(_container) { OKF::Store::Filesystem.new(root: c.store_root) }
+end
+```
+
+Now queries take a scope — the container's own id by default, an id-set for a
+node and its descendants (the host computes the set; the library never walks your
+tree), or `:global`:
+
+```ruby
+node.okf.search("plan")                       # this node
+node.okf.search("plan", scope: subtree_ids)   # node + descendants
+node.okf.search("plan", scope: :global)       # whole workspace
+node.okf.tagged("urgent", scope: :global)
+node.okf.move(uuid, to: other_node.okf_namespace)   # re-home; identity + graph intact
+```
+
+The index conforms to the same interface as the in-memory one, so nothing above
+the facade changes; the files stay truth and the index is rebuildable from them.
+
+## The note editor (no-build engine asset)
+
+The engine ships the Tiptap editor — toolbar, autosave, lists/checklists, note
+links with a `rel` picker, and in-content `#tags` — plus the vendored
+Tiptap/ProseMirror ESM, for importmap + propshaft hosts (no bundler).
 
 ```ruby
 # config/routes.rb
 mount OKF::Rails::Engine => "/okf"
 ```
 
-The engine isolates the `OKF` namespace. Configuration and the container
-association ship now; the controllers, routes and the JST/Tiptap editor are being
-ported from the reference application (notes_app) and land in a following phase.
+```erb
+<%# app/views/layouts/application.html.erb %>
+<%= stylesheet_link_tag "okf/editor" %>
+<%= javascript_importmap_tags %>
+```
+
+The engine's importmap pins (`okf/editor` + Tiptap/ProseMirror) are contributed to
+your importmap automatically. Mount the editor on an element per note:
+
+```js
+import { mountEditor } from "okf/editor"
+
+const el = document.querySelector(".okf-editor-mount") // data-note-uuid / data-initial-content
+const handle = mountEditor(el, {
+  content: el.dataset.initialContent,
+  updateUrl: `/n/${el.dataset.noteUuid}`,   // PATCH target (form params, HTML back)
+  wikilinksUrl: "/n/catalog",               // GET: HTML list of notes for [[wikilinks]]
+  vocabularyUrl: "/vocabulary"              // GET: vocabulary as HTML for the rel picker
+})
+handle.getHTML() // the current body; handle.destroy() to tear down
+```
+
+Everything travels as HTML: the lists are parsed from markup and the autosave
+PATCHes a form body (`note[content]`), expecting the rendered note HTML back — no
+JSON. A host endpoint must accept the form PATCH and respond with HTML carrying a
+`[data-slug]` (see notes_app's `notes/_saved` partial). The engine isolates the
+`OKF` namespace; controllers/routes are still host-owned.
 
 ## Build with hypermedia, not JSON
 

@@ -4,6 +4,23 @@ Both gems version together and track the spec: the minor follows SPEC.md's
 version (spec 0.1 → 0.1.x), with patch releases for gem iterations. Format roughly
 follows Keep a Changelog.
 
+## [Unreleased]
+
+### Added
+
+- Container scoping in the index: entries carry a container id and `all` /
+  `search` / `tagged` take a `scope:` (nil/:all/:global, or an id-set for a node
+  and its descendants — the host passes the set). `all_tags` for the tag
+  namespace. `Repository` gains `container:`, `tagged`, and `move(uuid, to:)`.
+- `OKF::Rails::Index` — a SQL-backed, workspace-global index (okf_notes +
+  okf_edges + okf_taggings) conforming to the Index interface, selectable via
+  `OKF.config.index_builder`. `rails g okf:install` ships the migration +
+  initializer.
+- The note editor as a no-build engine asset: `okf/editor` (`window.OKF.mountEditor`)
+  with configurable endpoints, the vendored Tiptap/ProseMirror ESM, importmap
+  pins, and CSS — toolbar, autosave, lists/checklists, wikilinks + `rel` picker,
+  in-content `#tags`. Everything over the wire is HTML.
+
 ## [0.1.0] — 2026-06-27
 
 First tagged release: a complete, tested implementation of the OKF/HTML 0.1 spec
