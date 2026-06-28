@@ -11,11 +11,12 @@ Gem::Specification.new do |spec|
   spec.license     = "MIT"
   spec.required_ruby_version = ">= 3.2"
 
-  spec.files = Dir["lib/**/*.rb", "README.md"]
+  spec.files = Dir["lib/**/*", "README.md"]
   spec.require_paths = [ "lib" ]
 
   spec.add_dependency "okf-html", OKF::Rails::VERSION
   spec.add_dependency "rails", ">= 7.1"
 
   spec.add_development_dependency "minitest", ">= 5.0"
+  spec.add_development_dependency "sqlite3", ">= 1.4"
 end

@@ -5,3 +5,5 @@ gemspec
 # The pure core is a sibling path gem during development.
 gem "okf-html", path: "../okf-html"
 gem "rake"
+
+gem "sqlite3", "~> 2.9", group: :development

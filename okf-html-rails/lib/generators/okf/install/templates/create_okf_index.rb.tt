@@ -1,0 +1,39 @@
+# The SQL-backed OKF index: a derived, rebuildable view over the note store
+# (the files remain truth). Drop these tables and `reconcile` rebuilds them.
+class CreateOkfIndex < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    create_table :okf_notes do |t|
+      t.string :uuid, null: false
+      t.string :slug
+      t.string :title
+      t.string :effective_title
+      t.text :body_text
+      t.boolean :pinned, null: false, default: false
+      t.boolean :template, null: false, default: false
+      t.string :container # the scope id (the host's node/owner), e.g. "node-42"
+      t.datetime :note_created_at
+      t.datetime :note_updated_at
+      t.timestamps
+    end
+    add_index :okf_notes, :uuid, unique: true
+    add_index :okf_notes, :slug
+    add_index :okf_notes, :container
+
+    create_table :okf_edges do |t|
+      t.string :source_uuid, null: false
+      t.string :rel
+      t.string :target_ref, null: false # the uuid or slug the /n/ href names
+      t.boolean :member, null: false, default: false # a membership link (§8)?
+      t.integer :position # order within the collection's list
+    end
+    add_index :okf_edges, :source_uuid
+    add_index :okf_edges, :target_ref
+
+    create_table :okf_taggings do |t|
+      t.string :note_uuid, null: false
+      t.string :tag, null: false
+    end
+    add_index :okf_taggings, :tag
+    add_index :okf_taggings, [ :note_uuid, :tag ], unique: true
+  end
+end

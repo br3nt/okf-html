@@ -13,6 +13,12 @@ module OKF
       # Defaults to a per-container namespaced Filesystem store under store_root.
       attr_accessor :store_builder
 
+      # A builder that, given a container, returns the Index it should use.
+      # Defaults to a fresh in-memory index per container. Set this to
+      # `->(_c) { OKF::Rails::Index.new }` (with a shared store) to use the
+      # SQL-backed workspace-global index instead.
+      attr_accessor :index_builder
+
       def store_root
         @store_root ||= default_store_root
       end
@@ -24,6 +30,16 @@ module OKF
           store_builder.call(container)
         else
           OKF::Store::Filesystem.new(root: store_root, namespace: container.okf_namespace)
+        end
+      end
+
+      # Build the Index for a given container. Defaults to in-memory; override
+      # index_builder to use the SQL-backed OKF::Rails::Index.
+      def index_for(container)
+        if index_builder
+          index_builder.call(container)
+        else
+          OKF::Index.new
         end
       end
 

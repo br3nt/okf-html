@@ -28,7 +28,10 @@ module OKF
       @index = index
       @clock = clock
       @container = container
-      @index.rebuild_from(@store)
+      # A volatile index is rebuilt from the store on open; a persistent one (the
+      # SQL-backed index) is its own truth and is left alone.
+      rebuild = @index.respond_to?(:ephemeral?) ? @index.ephemeral? : true
+      @index.rebuild_from(@store, container: @container) if rebuild
     end
 
     # The default query scope: this repository's container, or :all when unscoped.
@@ -143,7 +146,7 @@ module OKF
     # every document so its rev mirrors match the graph. Yields [done, total]
     # after each write when a block is given. Returns the number written.
     def reconcile
-      @index.rebuild_from(@store)
+      @index.rebuild_from(@store, container: @container)
       keys = @store.each_key.to_a
       keys.each_with_index do |key, i|
         rerender(key)

@@ -20,8 +20,11 @@ module OKF
     extend ActiveSupport::Concern
 
     # The Repository scoped to this container — the one object a host touches.
+    # The container's namespace is its scope id, so a SQL-backed index can answer
+    # per-node, subtree and global queries; the per-container in-memory default
+    # ignores the scope (it already holds just this container's notes).
     def okf
-      @okf ||= OKF::Repository.new(store: okf_store, index: okf_index)
+      @okf ||= OKF::Repository.new(store: okf_store, index: okf_index, container: okf_namespace)
     end
 
     # The Store backing this container's notes (per-container by default).
@@ -37,10 +40,11 @@ module OKF
 
     private
 
-    # The derived index over this container's store. The default is in-memory and
-    # rebuilt per container instance; a host with a database can supply its own.
+    # The derived index for this container. In-memory by default (rebuilt per
+    # container instance); set OKF.config.index_builder to the SQL-backed index
+    # for a queryable, workspace-global view.
     def okf_index
-      OKF::Index.new
+      OKF.config.index_for(self)
     end
 
     def okf_key

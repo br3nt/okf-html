@@ -25,6 +25,61 @@ module OKF
                        :template, :body, :created_at, :updated_at, :container,
                        :outgoing, :member_hrefs, keyword_init: true)
 
+    # Parse a document's html into an Entry without storing it, so any index
+    # implementation (this one, the engine's SQL-backed one) shares one parser.
+    # Returns nil for empty html or a document with no uuid.
+    def self.entry_for(html, container: nil)
+      return if html.to_s.empty?
+      parsed = Document.parse(html)
+      return if parsed.uuid.blank?
+      note = Note.from_parsed(parsed)
+      fragment = Nokogiri::HTML5.fragment(parsed.body)
+      Entry.new(
+        uuid: parsed.uuid, slug: parsed.slug, title: parsed.title,
+        effective_title: note.effective_title, tags: parsed.tag_names,
+        pinned: parsed.pinned?, template: parsed.template?, body: parsed.body,
+        created_at: parsed.created_at, updated_at: parsed.updated_at,
+        container: container,
+        outgoing: outgoing_links(fragment), member_hrefs: member_hrefs(fragment)
+      )
+    end
+
+    # Outgoing /n/ links as { rel:, href: } (first rel token only), and the subset
+    # that are membership links (inside a list item, §8). Pure functions of a body
+    # fragment, shared with other index implementations.
+    def self.outgoing_links(fragment)
+      fragment.css("a[href^='/n/']").map { |a| { rel: a["rel"].to_s.split.first, href: a["href"] } }
+    end
+
+    def self.member_hrefs(fragment)
+      fragment.css("ol li a[href^='/n/'], ul li a[href^='/n/']").map { |a| a["href"] }
+    end
+
+    # A note's outgoing graph as structured edges for a persistent (SQL) index:
+    # each /n/ link's rel, its resolved target ref (the uuid or slug from the
+    # href), whether it is a membership link (inside a list item, §8) and that
+    # member's position. Document order; membership keyed by node path so a target
+    # linked both in prose and in a list is captured as two distinct edges.
+    def self.edges_for(body)
+      fragment = Nokogiri::HTML5.fragment(body.to_s)
+      member_position = {}
+      fragment.css("ol li a[href^='/n/'], ul li a[href^='/n/']").each_with_index do |a, i|
+        member_position[a.path] = i
+      end
+      fragment.css("a[href^='/n/']").map do |a|
+        position = member_position[a.path]
+        { rel: a["rel"].to_s.split.first, target_ref: href_to_ref(a["href"]),
+          member: !position.nil?, position: position }
+      end
+    end
+
+    # The bare identifier a /n/ href points at: strip the canonical prefix and any
+    # fragment/query, then unescape.
+    def self.href_to_ref(href)
+      id = href.to_s.delete_prefix(CANONICAL_PREFIX).split(/[#?]/).first.to_s
+      CGI.unescape(id)
+    end
+
     def initialize = reset
 
     def reset
@@ -33,10 +88,17 @@ module OKF
       self
     end
 
-    # Rebuild the whole index from the store's documents (files are truth).
-    def rebuild_from(store)
+    # An in-memory index is volatile — the Repository rebuilds it from the store
+    # on open. A persistent index (the SQL-backed one) returns false so it is not
+    # reset on every repository instantiation.
+    def ephemeral? = true
+
+    # Rebuild the whole index from the store's documents (files are truth). All
+    # rebuilt notes are stamped with +container+, since a per-container store
+    # holds exactly that container's notes.
+    def rebuild_from(store, container: nil)
       reset
-      store.each_key { |key| add(store.read(key)) }
+      store.each_key { |key| add(store.read(key), container: container) }
       self
     end
 
@@ -44,21 +106,12 @@ module OKF
     # scope the note belongs to (the host's node/owner id), so the same index can
     # answer per-node, subtree, and global queries; nil means unscoped.
     def add(html, container: nil)
-      return if html.to_s.empty?
-      parsed = Document.parse(html)
-      uuid = parsed.uuid
+      previewed = Document.parse(html) unless html.to_s.empty?
+      uuid = previewed&.uuid
       return if uuid.blank?
-      note = Note.from_parsed(parsed)
-      fragment = Nokogiri::HTML5.fragment(parsed.body)
+      # A re-index that doesn't restate the container keeps the existing scope.
       container = @entries[uuid].container if container.nil? && @entries[uuid]
-      entry = Entry.new(
-        uuid: uuid, slug: parsed.slug, title: parsed.title,
-        effective_title: note.effective_title, tags: parsed.tag_names,
-        pinned: parsed.pinned?, template: parsed.template?, body: parsed.body,
-        created_at: parsed.created_at, updated_at: parsed.updated_at,
-        container: container,
-        outgoing: outgoing_links(fragment), member_hrefs: member_hrefs(fragment)
-      )
+      entry = self.class.entry_for(html, container: container)
       # Drop a previous slug mapping for this uuid (a rename) so the old slug
       # stops resolving.
       previous = @entries[uuid]
@@ -151,16 +204,6 @@ module OKF
       return entries if scope.nil? || scope == :all || scope == :global
       set = Array(scope)
       entries.select { |e| set.include?(e.container) }
-    end
-
-    def outgoing_links(fragment)
-      fragment.css("a[href^='/n/']").map { |a| { rel: a["rel"].to_s.split.first, href: a["href"] } }
-    end
-
-    # Membership is a link inside a list item (§8); a "see also" in a paragraph
-    # is not membership and is excluded.
-    def member_hrefs(fragment)
-      fragment.css("ol li a[href^='/n/'], ul li a[href^='/n/']").map { |a| a["href"] }
     end
 
     def resolve_href(href)

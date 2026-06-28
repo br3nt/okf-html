@@ -2,6 +2,7 @@ require "okf/html"
 require "okf/rails/version"
 require "okf/rails/configuration"
 require "okf/container"
+require "okf/rails/index" if Gem.loaded_specs.key?("activerecord") || defined?(::ActiveRecord::Base)
 require "okf/rails/engine" if defined?(::Rails::Engine)
 
 # The Rails integration for OKF/HTML. The pure core (okf-html) does the format
