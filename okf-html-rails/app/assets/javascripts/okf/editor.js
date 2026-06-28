@@ -39,15 +39,26 @@ export function mountEditor(mountEl, opts = {}) {
   const updateUrl = opts.updateUrl || (uuid ? `/n/${uuid}` : null)
   const wikilinksUrl = opts.wikilinksUrl || opts.notesUrl || "/n/catalog"
   const vocabularyUrl = opts.vocabularyUrl || "/vocabulary"
+  const templatesUrl = opts.templatesUrl || null // enables the associations panel
   const csrf = () => opts.csrfToken || defaultCsrfToken()
   const saveDelay = opts.saveDelay || 800
 
   let saveTimer, linkPanelHideTimer
 
-  // Send note[...] as a form body — HTML is the data contract, not JSON.
-  const noteForm = (fields) => {
+  // Send note[...] as a form body — HTML is the data contract, not JSON. Array
+  // fields (metadata/links/associations) get a trailing empty `[]` sentinel so an
+  // emptied list still clears server-side (Rails strong params drop the sentinel).
+  const noteForm = (fields, lists = {}) => {
     const params = new URLSearchParams()
     for (const [key, value] of Object.entries(fields)) params.append(`note[${key}]`, value)
+    for (const [key, items] of Object.entries(lists)) {
+      items.forEach((item) => {
+        for (const [field, value] of Object.entries(item)) {
+          if (value !== undefined && value !== null) params.append(`note[${key}][][${field}]`, value)
+        }
+      })
+      params.append(`note[${key}][]`, "")
+    }
     return params
   }
 
@@ -182,20 +193,29 @@ export function mountEditor(mountEl, opts = {}) {
   relList.id = "okf-rel-list"
   root.appendChild(relList)
   let discouragedRels = []
+  let schemesData = []
+  let headLinkRels = []
 
-  // The vocabulary as HTML (terms carry their inverse in data-inverse, the
-  // discouraged positional words are listed) — read from the DOM, never JSON.
-  fetch(vocabularyUrl, { headers: { Accept: "text/html" } })
+  // The vocabulary as HTML (terms carry their inverse in data-inverse, schemes
+  // their metadata names in data-names) — read from the DOM, never JSON. The
+  // promise lets the properties/associations panels wire up once it has loaded.
+  const vocabReady = fetch(vocabularyUrl, { headers: { Accept: "text/html" } })
     .then((r) => (r.ok ? r.text() : null))
     .then((html) => {
-      if (!html) return
+      if (!html) return null
       const doc = parseHtml(html)
       discouragedRels = Array.from(doc.querySelectorAll(".vocab-discouraged li")).map((li) => li.textContent.trim())
+      schemesData = Array.from(doc.querySelectorAll(".vocab-schemes li")).map((li) => ({
+        scheme: li.dataset.scheme,
+        names: (li.dataset.names || "").split(/\s+/).filter(Boolean)
+      }))
+      headLinkRels = Array.from(doc.querySelectorAll(".vocab-head-link-rels li")).map((li) => li.textContent.trim())
       relList.innerHTML = Array.from(doc.querySelectorAll(".vocab-terms li"))
         .map((li) => `<option value="${li.dataset.rel}">${li.dataset.inverse ? "↔ " + li.dataset.inverse : ""}</option>`)
         .join("")
+      return true
     })
-    .catch(() => {})
+    .catch(() => null)
 
   const linkPanelInput = linkPanel.querySelector(".link-panel-href")
   const linkPanelRel = linkPanel.querySelector(".link-panel-rel")
@@ -350,6 +370,201 @@ export function mountEditor(mountEl, opts = {}) {
     if (response.ok) mountEl.remove()
   }
   deleteButton?.addEventListener("click", onDelete)
+
+  // --- Optional properties panel (custom <meta> + head <link>, §3/§4) ------
+  // Wired only if the host renders a `.note-properties` block. A Meta row authors
+  // a <meta scheme name value>, a Link row a head <link rel href>; on save the
+  // rows are split by kind and PATCHed together as form arrays.
+  const properties = updateUrl && root.querySelector(".note-properties")
+  if (properties) {
+    const rowsEl = properties.querySelector(".properties-rows")
+    const propStatus = properties.querySelector(".prop-status")
+    let nameListSeq = 0
+
+    const schemeList = document.createElement("datalist")
+    schemeList.id = `prop-scheme-list-${uuid}`
+    const headRelList = document.createElement("datalist")
+    headRelList.id = `prop-head-rel-list-${uuid}`
+    root.append(schemeList, headRelList)
+
+    const optionsHtml = (values) => values.map((value) => `<option value="${value}">`).join("")
+    const allNames = () => [ ...new Set(schemesData.flatMap((scheme) => scheme.names || [])) ]
+
+    const refreshNameList = (row) => {
+      const list = row.querySelector(".prop-name-list")
+      if (!list) return
+      const chosen = row.querySelector(".prop-scheme").value.trim()
+      const match = schemesData.find((scheme) => scheme.scheme === chosen)
+      list.innerHTML = optionsHtml(match ? (match.names || []) : allNames())
+    }
+
+    const refreshRowWarning = (row) => {
+      const warning = row.querySelector(".prop-warning")
+      const rel = row.querySelector(".prop-rel").value.trim().toLowerCase()
+      const vague = rel && discouragedRels.includes(rel)
+      warning.hidden = !vague
+      if (vague) warning.textContent = `“${rel}” is positional and vague — prefer a named relationship`
+    }
+
+    const enhanceRow = (row) => {
+      const kind = row.querySelector(".prop-kind")
+      const schemeInput = row.querySelector(".prop-scheme")
+      const nameInput = row.querySelector(".prop-name")
+      const relInput = row.querySelector(".prop-rel")
+
+      schemeInput.setAttribute("list", schemeList.id)
+      relInput.setAttribute("list", headRelList.id)
+
+      const nameList = document.createElement("datalist")
+      nameList.id = `prop-name-list-${uuid}-${nameListSeq++}`
+      nameList.className = "prop-name-list"
+      nameInput.setAttribute("list", nameList.id)
+      row.appendChild(nameList)
+
+      kind.addEventListener("change", () => { row.dataset.kind = kind.value })
+      schemeInput.addEventListener("input", () => refreshNameList(row))
+      relInput.addEventListener("input", () => refreshRowWarning(row))
+      refreshNameList(row)
+      refreshRowWarning(row)
+    }
+
+    const newRow = (kind = "meta") => {
+      const row = document.createElement("div")
+      row.className = "property-row"
+      row.dataset.kind = kind
+      row.innerHTML = `
+        <select class="prop-kind" title="Row kind">
+          <option value="meta"${kind === "meta" ? " selected" : ""}>Meta</option>
+          <option value="link"${kind === "link" ? " selected" : ""}>Link</option>
+        </select>
+        <span class="prop-fields prop-meta-fields">
+          <input class="prop-scheme" placeholder="scheme" autocomplete="off">
+          <input class="prop-name" placeholder="name" autocomplete="off">
+          <input class="prop-value" placeholder="value">
+        </span>
+        <span class="prop-fields prop-link-fields">
+          <input class="prop-rel" placeholder="rel" autocomplete="off">
+          <input class="prop-href" placeholder="/n/note-slug or https://">
+          <span class="prop-warning" hidden></span>
+        </span>
+        <button type="button" class="prop-remove" title="Remove row">✕</button>`
+      return row
+    }
+
+    vocabReady.then(() => {
+      schemeList.innerHTML = optionsHtml(schemesData.map((scheme) => scheme.scheme))
+      headRelList.innerHTML = optionsHtml(headLinkRels)
+      rowsEl.querySelectorAll(".property-row").forEach(enhanceRow)
+    })
+
+    properties.querySelector(".prop-add").addEventListener("click", () => {
+      const row = newRow()
+      rowsEl.appendChild(row)
+      enhanceRow(row)
+    })
+    rowsEl.addEventListener("click", (event) => {
+      if (event.target.classList.contains("prop-remove")) event.target.closest(".property-row").remove()
+    })
+    properties.querySelector(".prop-save").addEventListener("click", async () => {
+      const metadata = []
+      const links = []
+      rowsEl.querySelectorAll(".property-row").forEach((row) => {
+        if (row.dataset.kind === "link") {
+          const rel = row.querySelector(".prop-rel").value.trim()
+          const href = row.querySelector(".prop-href").value.trim()
+          if (rel || href) links.push({ rel, href })
+        } else {
+          const name = row.querySelector(".prop-name").value.trim()
+          if (name) metadata.push({ name, value: row.querySelector(".prop-value").value.trim(), scheme: row.querySelector(".prop-scheme").value.trim() })
+        }
+      })
+      propStatus.textContent = "…"
+      try {
+        const response = await fetch(updateUrl, {
+          method: "PATCH",
+          headers: { Accept: "text/html", "X-CSRF-Token": csrf() },
+          body: noteForm({}, { metadata, links })
+        })
+        propStatus.textContent = response.ok ? "Saved" : "Save failed"
+      } catch {
+        propStatus.textContent = "Save failed"
+      }
+    })
+  }
+
+  // --- Optional template-associations panel (§9.2) ------------------------
+  // Wired only if the host renders a `.note-associations` block and supplies a
+  // templatesUrl (an HTML list of templates with data-uuid). Declares has-many /
+  // has-one / belongs-to relationships to other templates.
+  const associations = updateUrl && templatesUrl && root.querySelector(".note-associations")
+  if (associations) {
+    const assocRowsEl = associations.querySelector(".associations-rows")
+    const assocStatus = associations.querySelector(".assoc-status")
+    let templatesIndex = []
+
+    const targetOptions = (selected) =>
+      `<option value="">— template —</option>` +
+      templatesIndex
+        .filter((tmpl) => tmpl.uuid !== uuid)
+        .map((tmpl) => `<option value="${tmpl.uuid}"${tmpl.uuid === selected ? " selected" : ""}>${tmpl.title}</option>`)
+        .join("")
+
+    const fillTargets = () => {
+      assocRowsEl.querySelectorAll(".association-row").forEach((row) => {
+        row.querySelector(".assoc-target").innerHTML = targetOptions(row.dataset.templateUuid || "")
+      })
+    }
+    fetch(templatesUrl, { headers: { Accept: "text/html" } })
+      .then((response) => (response.ok ? response.text() : ""))
+      .then((html) => {
+        templatesIndex = Array.from(parseHtml(html).querySelectorAll("li a")).map((a) => ({ uuid: a.dataset.uuid, title: a.textContent.trim() }))
+        fillTargets()
+      })
+      .catch(() => {})
+
+    const newAssocRow = () => {
+      const row = document.createElement("div")
+      row.className = "association-row"
+      row.innerHTML = `
+        <select class="assoc-kind" title="Association kind">
+          <option value="has-many">has-many</option>
+          <option value="has-one">has-one</option>
+          <option value="belongs-to">belongs-to</option>
+        </select>
+        <input class="assoc-as" placeholder="as (e.g. chapter)" autocomplete="off">
+        <select class="assoc-target" title="Target template">${targetOptions("")}</select>
+        <button type="button" class="assoc-remove" title="Remove association">✕</button>`
+      return row
+    }
+
+    associations.querySelector(".assoc-add").addEventListener("click", () => assocRowsEl.appendChild(newAssocRow()))
+    assocRowsEl.addEventListener("click", (event) => {
+      if (event.target.classList.contains("assoc-remove")) event.target.closest(".association-row").remove()
+    })
+    associations.querySelector(".assoc-save").addEventListener("click", async () => {
+      const payload = Array.from(assocRowsEl.querySelectorAll(".association-row")).map((row) => {
+        const kind = row.querySelector(".assoc-kind").value
+        return {
+          kind,
+          as: row.querySelector(".assoc-as").value.trim(),
+          template_uuid: row.querySelector(".assoc-target").value,
+          // Only send ordered when true: the server coerces with !!, so "false" would read truthy.
+          ordered: kind === "has-many" ? "true" : undefined
+        }
+      }).filter((assoc) => assoc.as && assoc.template_uuid)
+      assocStatus.textContent = "…"
+      try {
+        const response = await fetch(updateUrl, {
+          method: "PATCH",
+          headers: { Accept: "text/html", "X-CSRF-Token": csrf() },
+          body: noteForm({}, { associations: payload })
+        })
+        assocStatus.textContent = response.ok ? "Saved" : "Save failed"
+      } catch {
+        assocStatus.textContent = "Save failed"
+      }
+    })
+  }
 
   if (mountEl.hasAttribute("autofocus")) titleInput?.focus()
 

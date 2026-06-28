@@ -4,7 +4,7 @@ Both gems version together and track the spec: the minor follows SPEC.md's
 version (spec 0.1 → 0.1.x), with patch releases for gem iterations. Format roughly
 follows Keep a Changelog.
 
-## [Unreleased]
+## [0.1.1] — 2026-06-28
 
 ### Added
 
@@ -16,10 +16,13 @@ follows Keep a Changelog.
   okf_edges + okf_taggings) conforming to the Index interface, selectable via
   `OKF.config.index_builder`. `rails g okf:install` ships the migration +
   initializer.
-- The note editor as a no-build engine asset: `okf/editor` (`window.OKF.mountEditor`)
-  with configurable endpoints, the vendored Tiptap/ProseMirror ESM, importmap
-  pins, and CSS — toolbar, autosave, lists/checklists, wikilinks + `rel` picker,
-  in-content `#tags`. Everything over the wire is HTML.
+- The note editor as a no-build engine asset: `okf/editor`
+  (`window.OKF.mountEditor(el, opts) -> { getHTML, destroy }`) with configurable
+  endpoints, the vendored Tiptap/ProseMirror ESM, importmap pins, and CSS —
+  toolbar, autosave, lists/checklists, wikilinks + `rel` picker, in-content
+  `#tags`. Optional, host-gated properties (custom `<meta>` / head `<link>`) and
+  template-associations panels (enable the latter with `templatesUrl`). Browser-
+  verified end to end; everything over the wire is HTML.
 
 ## [0.1.0] — 2026-06-27
 
@@ -64,4 +67,5 @@ embed notes.
   checklist.
 - `INTEGRATION_BRIEF.md` — for new consumers.
 
+[0.1.1]: https://github.com/br3nt/okf-html/releases/tag/v0.1.1
 [0.1.0]: https://github.com/br3nt/okf-html/releases/tag/v0.1.0
