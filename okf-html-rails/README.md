@@ -161,6 +161,33 @@ default keyword), `fuzzy:` (typo-tolerant); tokens AND, and any is negated with 
 leading `-`/`!`. It runs in any scope (a node, a subtree id-set, or `:global`),
 so the same bar works per-node and workspace-wide.
 
+## Embed declaratively with JST components (hypertext as the API)
+
+[JST](https://github.com/br3nt/jst)'s philosophy is OKF's: the wire format is
+HTML, so a host emits components directly and the browser upgrades them. The
+engine ships JST component definitions so the editor and graph are *custom
+elements* — a host writes the tag, no imperative `mount` call.
+
+A host that loads the JST runtime (serve its modules undigested from `public/jst`
+and load `/jst/jst.js`; see JST's integration guide) renders the definitions once
+and then uses the elements anywhere:
+
+```erb
+<%# once, e.g. in the layout — ships the okf-editor / okf-graph definitions %>
+<%= render "okf/components" %>
+
+<okf-editor note-uuid="<%= note.uuid %>" update-url="<%= note_path(note) %>"
+            wikilinks-url="/n/catalog" vocabulary-url="/vocabulary"
+            content="<%= note.content %>"></okf-editor>
+
+<okf-graph graph-url="/graph" filter="tag:plan"></okf-graph>
+```
+
+The component's `once()` mounts `okf/editor` / `okf/graph` and returns its
+teardown — props down (attributes configure it), events up (it autosaves over
+HTTP). `okf/editor` and `okf/graph` are importmap-pinned by the engine.
+Definitions are in `app/views/okf/_components.html.erb`.
+
 ## Build with hypermedia, not JSON
 
 OKF is HTML all the way down — including over the wire. There is no JSON: HTML is

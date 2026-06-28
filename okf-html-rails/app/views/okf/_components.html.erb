@@ -1,0 +1,46 @@
+<%# OKF/HTML embeds as JST components — hypertext as the API (JST's philosophy).
+    A host that loads the JST runtime (see https://github.com/br3nt/jst —
+    integration.md) and renders this partial once can embed a note editor or the
+    knowledge-graph view by writing the custom element in HTML, no imperative
+    mount call. The okf/editor and okf/graph assets (importmap-pinned by the
+    engine) provide the behaviour; these JST components are the declarative skin.
+
+    Definitions ship once (inline-once): render this partial a single time per
+    page, e.g. in the layout, then use the elements anywhere. %>
+
+<script type="jst" name="okf-editor" attributes="noteUuid updateUrl wikilinksUrl vocabularyUrl templatesUrl content">
+  <div class="okf-editor-mount" data-note-uuid="$(noteUuid)">
+    <span class="note-status"></span>
+    <div class="note-content"></div>
+  </div>
+  ${
+    // Props down, events up: the element's attributes configure the editor; the
+    // editor autosaves over HTTP. once() defers the mount to after the DOM
+    // commits and returns the teardown.
+    once('okf-editor', () => {
+      const handle = window.OKF.mountEditor(el.querySelector('.okf-editor-mount'), {
+        content: content,
+        updateUrl: updateUrl,
+        wikilinksUrl: wikilinksUrl,
+        vocabularyUrl: vocabularyUrl,
+        templatesUrl: templatesUrl
+      })
+      el.getHTML = () => handle.getHTML()
+      return () => handle.destroy()
+    })
+  }
+</script>
+
+<script type="jst" name="okf-graph" attributes="graphUrl filter">
+  <div class="okf-graph-host"></div>
+  ${
+    once('okf-graph', () => {
+      const handle = window.OKF.mountGraph(el.querySelector('.okf-graph-host'), {
+        graphUrl: graphUrl,
+        filter: filter || ''
+      })
+      el.reloadGraph = () => handle.reload()
+      return () => {}
+    })
+  }
+</script>

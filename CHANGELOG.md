@@ -4,6 +4,17 @@ Both gems version together and track the spec: the minor follows SPEC.md's
 version (spec 0.1 → 0.1.x), with patch releases for gem iterations. Format roughly
 follows Keep a Changelog.
 
+## [0.1.3] — 2026-06-29
+
+### Added
+
+- JST components for the engine (hypertext as the API). `app/views/okf/_components.html.erb`
+  defines `<okf-editor>` and `<okf-graph>` JST components that wrap the `okf/editor`
+  and `okf/graph` assets, so a host embeds them declaratively — write the custom
+  element, JST upgrades it, `once()` mounts the widget and returns its teardown.
+  Aligns OKF with JST's philosophy (HTML is the wire format, props down / events
+  up). Browser-verified end to end.
+
 ## [0.1.2] — 2026-06-28
 
 ### Added
@@ -80,6 +91,7 @@ embed notes.
   checklist.
 - `INTEGRATION_BRIEF.md` — for new consumers.
 
+[0.1.3]: https://github.com/br3nt/okf-html/releases/tag/v0.1.3
 [0.1.2]: https://github.com/br3nt/okf-html/releases/tag/v0.1.2
 [0.1.1]: https://github.com/br3nt/okf-html/releases/tag/v0.1.1
 [0.1.0]: https://github.com/br3nt/okf-html/releases/tag/v0.1.0
