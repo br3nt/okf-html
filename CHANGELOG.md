@@ -4,6 +4,10 @@ Both gems version together and track the spec: the minor follows SPEC.md's
 version (spec 0.1 → 0.1.x), with patch releases for gem iterations. Format roughly
 follows Keep a Changelog.
 
+Each release carries its own **Upgrading** notes inline (what a consumer wires up
+to adopt the change); the full how-to for each capability is in the engine
+`README.md`. To pin a release, see the git/tag refs in the install instructions.
+
 ## [0.1.3] — 2026-06-29
 
 ### Added
@@ -14,6 +18,15 @@ follows Keep a Changelog.
   element, JST upgrades it, `once()` mounts the widget and returns its teardown.
   Aligns OKF with JST's philosophy (HTML is the wire format, props down / events
   up). Browser-verified end to end.
+
+### Upgrading
+
+- Optional. The imperative `window.OKF.mountEditor` / `mountGraph` API is
+  unchanged. To embed declaratively, load the JST runtime (v0.4.1+; serve its
+  modules undigested from `public/jst`, load `/jst/jst.js` — see JST's
+  integration guide), `render "okf/components"` once, then write `<okf-editor
+  …>` / `<okf-graph …>`. The host owns the JST runtime; the engine ships only the
+  component definitions + the `okf/editor` / `okf/graph` assets.
 
 ## [0.1.2] — 2026-06-28
 
@@ -27,6 +40,14 @@ follows Keep a Changelog.
   HTML. `Repository#filter` / `#graph` are the ergonomic entry points. The engine
   ships `okf/graph` — a no-build, dependency-free force-directed SVG renderer with
   a chip filter bar — plus `okf/graph.css`. Browser-verified.
+
+### Upgrading
+
+- Wire one host route that serves the subgraph as HTML —
+  `render html: current_node.okf.graph(params[:filter]).to_html.html_safe` — and
+  mount `okf/graph` against it (`mountGraph(el, { graphUrl, filter })`), or use
+  the `<okf-graph>` JST component (0.1.3). The filter language is pure Ruby, so
+  the same query also drives a list. No schema change.
 
 ## [0.1.1] — 2026-06-28
 
@@ -47,6 +68,21 @@ follows Keep a Changelog.
   `#tags`. Optional, host-gated properties (custom `<meta>` / head `<link>`) and
   template-associations panels (enable the latter with `templatesUrl`). Browser-
   verified end to end; everything over the wire is HTML.
+
+### Upgrading
+
+- Pin both gems from the repo with `git:`, `glob:` pointing at each gem's
+  `.gemspec`, and `tag: "v0.1.x"`. Loading the engine auto-registers the editor
+  assets + importmap pins.
+- Editor: add `stylesheet_link_tag "okf/editor"` + `javascript_importmap_tags`,
+  then `window.OKF.mountEditor(el, { content, updateUrl, wikilinksUrl,
+  vocabularyUrl })`. Your endpoints speak **HTML, not JSON**: `updateUrl` takes a
+  form PATCH (`note[content]=…`) and returns HTML with a `[data-slug]`;
+  `wikilinksUrl` / `vocabularyUrl` return HTML the editor parses. See README.
+- SQL index (for cross-node search / app-wide tags / `move`): `rails g
+  okf:install && rails db:migrate`, then `OKF.config.index_builder = ->(_c) {
+  OKF::Rails::Index.new }` with a shared `store_builder`. Queries take `scope:`
+  (a container, a subtree id-set the host computes, or `:global`).
 
 ## [0.1.0] — 2026-06-27
 
