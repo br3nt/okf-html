@@ -1,8 +1,8 @@
 # okf-html
 
-Pure-Ruby implementation of the [OKF/HTML](https://br3nt.github.io/okf/) spec:
-notes are complete, self-describing HTML documents, and the link graph between
-them is the knowledge graph.
+Pure-Ruby implementation of the [OKF/HTML](https://github.com/br3nt/okf-html/blob/main/SPEC.md)
+spec: notes are complete, self-describing HTML documents, and the link graph
+between them is the knowledge graph.
 
 This gem is the format core. It performs no I/O and depends on no web framework —
 its collaborators (a note, an owner) are duck-typed. The Rails engine

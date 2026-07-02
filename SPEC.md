@@ -100,6 +100,12 @@ space-separated list of profile URIs (§6). This is how a note states *"these
 `rel` values mean what these specs say."* Multiple profiles compose: a built-in
 base profile plus user-defined profiles.
 
+> The base profile URI above (`https://br3nt.github.io/okf/`) is the format's
+> stable identifier and is embedded in every rendered document as-is — it is
+> not a placeholder and MUST NOT change. The human-readable profile page at
+> that address has not shipped yet; until it does, this spec's canonical copy
+> is [`SPEC.md` in the okf-html repo](https://github.com/br3nt/okf-html/blob/main/SPEC.md).
+
 ---
 
 ## 3. Metadata
