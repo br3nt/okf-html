@@ -1,6 +1,6 @@
 # okf-html-rails
 
-A mountable Rails engine that embeds [OKF/HTML](https://br3nt.github.io/okf/)
+A mountable Rails engine that embeds [OKF/HTML](https://github.com/br3nt/okf-html/blob/main/SPEC.md)
 notes in a host application. It wires the pure [`okf-html`](../okf-html) core into
 Rails so a host gets notes, links, tags, collections, templates and the
 reconciler by including one concern and (optionally) mounting one engine.

@@ -1,0 +1,7 @@
+# OKF/HTML
+
+Core specification: SPEC.md
+Implementation guide: doc/implementing.md
+Hypermedia guide: doc/hypermedia.md
+Agent skill: .claude/skills/okf-html/SKILL.md
+Conformance fixtures: fixtures/

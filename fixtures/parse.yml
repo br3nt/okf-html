@@ -1,0 +1,184 @@
+version: 1
+source_tests:
+  - okf-html/test/okf/document_test.rb
+  - okf-html/test/okf/repository_test.rb
+  - okf-html/test/okf/index_test.rb
+cases:
+  - name: identity_tags_timestamps
+    html: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head profile="https://br3nt.github.io/okf/">
+      <meta charset="utf-8">
+      <title>My Note</title>
+      <link rel="canonical" href="/n/my-note">
+      <meta name="uuid" scheme="UUID" content="11111111-1111-4111-8111-111111111111">
+      <meta name="created" scheme="ISO8601" content="2026-01-01T12:00:00Z">
+      <meta name="updated" scheme="ISO8601" content="2026-01-02T09:30:00Z">
+      <meta name="keywords" content="ruby, notes">
+      </head>
+      <body>
+      <p>body</p>
+      </body>
+      </html>
+    expected:
+      document:
+        uuid: "11111111-1111-4111-8111-111111111111"
+        slug: my-note
+        title: My Note
+        body: "<p>body</p>"
+        tag_names:
+          - ruby
+          - notes
+        pinned: false
+        template: false
+        template_uuid:
+        created_at: "2026-01-01T12:00:00Z"
+        updated_at: "2026-01-02T09:30:00Z"
+        metadata: []
+        links: []
+        associations: []
+      index:
+        effective_title: My Note
+        outgoing_links: []
+        member_hrefs: []
+
+  - name: metadata_links_flags_association
+    html: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head profile="https://br3nt.github.io/okf/">
+      <meta charset="utf-8">
+      <title>Research Note</title>
+      <link rel="canonical" href="/n/research-note">
+      <meta name="uuid" scheme="UUID" content="22222222-2222-4222-8222-222222222222">
+      <meta name="created" scheme="ISO8601" content="2026-02-03T04:05:06Z">
+      <meta name="updated" scheme="ISO8601" content="2026-02-04T05:06:07Z">
+      <meta name="pinned" content="true">
+      <meta name="template" content="true">
+      <meta name="author" scheme="DC" content="Jane">
+      <meta name="identifier" scheme="DOI" content="10.1234/abcd">
+      <link rel="license" href="/n/cc-by">
+      <link rel="okf:has-many" href="/templates/chapter" data-as="chapter" data-inverse="belongs-to" data-dependent="destroy" data-ordered="true">
+      <meta name="instance-of" scheme="UUID" content="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa">
+      </head>
+      <body>
+      <article><h1>Research Note</h1></article>
+      </body>
+      </html>
+    expected:
+      document:
+        uuid: "22222222-2222-4222-8222-222222222222"
+        slug: research-note
+        title: Research Note
+        body: "<article><h1>Research Note</h1></article>"
+        tag_names: []
+        pinned: true
+        template: true
+        template_uuid: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        created_at: "2026-02-03T04:05:06Z"
+        updated_at: "2026-02-04T05:06:07Z"
+        metadata:
+          - name: author
+            value: Jane
+            scheme: DC
+          - name: identifier
+            value: "10.1234/abcd"
+            scheme: DOI
+        links:
+          - rel: license
+            href: /n/cc-by
+        associations:
+          - kind: has-many
+            template_href: /templates/chapter
+            template_uuid:
+            as: chapter
+            inverse: belongs-to
+            dependent: destroy
+            through:
+            ordered: true
+            optional: true
+            polymorphic: false
+      index:
+        effective_title: Research Note
+        outgoing_links: []
+        member_hrefs: []
+
+  - name: blank_title_body_fallback
+    html: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head profile="https://br3nt.github.io/okf/">
+      <meta charset="utf-8">
+      <title></title>
+      <link rel="canonical" href="/n/body-title">
+      <meta name="uuid" scheme="UUID" content="55555555-5555-4555-8555-555555555555">
+      </head>
+      <body>
+      <h1>Body title</h1><p>More.</p>
+      </body>
+      </html>
+    expected:
+      document:
+        uuid: "55555555-5555-4555-8555-555555555555"
+        slug: body-title
+        title:
+        body: "<h1>Body title</h1><p>More.</p>"
+        tag_names: []
+        pinned: false
+        template: false
+        template_uuid:
+        created_at:
+        updated_at:
+        metadata: []
+        links: []
+        associations: []
+      index:
+        effective_title: Body title
+        outgoing_links: []
+        member_hrefs: []
+
+  - name: collection_order_and_typed_links
+    html: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head profile="https://br3nt.github.io/okf/">
+      <meta charset="utf-8">
+      <title>Guide</title>
+      <link rel="canonical" href="/n/guide">
+      <meta name="uuid" scheme="UUID" content="66666666-6666-4666-8666-666666666666">
+      </head>
+      <body>
+      <ol><li><a rel="chapter" href="/n/routing">Routing</a></li><li><a rel="chapter" href="/n/controllers">Controllers</a></li></ol>
+      <p>See also <a rel="related" href="/n/views">Views</a>.</p>
+      </body>
+      </html>
+    expected:
+      document:
+        uuid: "66666666-6666-4666-8666-666666666666"
+        slug: guide
+        title: Guide
+        body: |-
+          <ol><li><a rel="chapter" href="/n/routing">Routing</a></li><li><a rel="chapter" href="/n/controllers">Controllers</a></li></ol>
+          <p>See also <a rel="related" href="/n/views">Views</a>.</p>
+        tag_names: []
+        pinned: false
+        template: false
+        template_uuid:
+        created_at:
+        updated_at:
+        metadata: []
+        links: []
+        associations: []
+      index:
+        effective_title: Guide
+        outgoing_links:
+          - rel: chapter
+            href: /n/routing
+          - rel: chapter
+            href: /n/controllers
+          - rel: related
+            href: /n/views
+        member_hrefs:
+          - /n/routing
+          - /n/controllers

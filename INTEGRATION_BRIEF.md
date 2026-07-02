@@ -3,8 +3,9 @@
 You are integrating the `okf-html` gem (and its Rails engine `okf-html-rails`)
 into agent_app. This document is your starting point. After you've wired up the
 data layer and hit real friction, write down what you learned — that feedback
-drives the next phase of the gem's design (the index schema and the global-tags
-model are deliberately unfinished and waiting on it).
+drives the next phase of the gem's design (the AR index schema shipped but is
+unproven against a real multi-node hierarchy; the collection-per-node wiring
+and the controller/route layer are still host code waiting on it).
 
 ## The vision (why this gem exists)
 
@@ -37,7 +38,7 @@ down into the library, hosts stay thin.
 ## Where the code is
 
 ```
-git@github.com:br3nt/okf-html.git   (private, SSH)
+https://github.com/br3nt/okf-html   (public)
 ```
 
 One repo, two gems that version together:
@@ -49,8 +50,8 @@ One repo, two gems that version together:
 Add to agent_app's Gemfile:
 
 ```ruby
-gem "okf-html",       git: "git@github.com:br3nt/okf-html.git", glob: "okf-html/*.gemspec"
-gem "okf-html-rails", git: "git@github.com:br3nt/okf-html.git", glob: "okf-html-rails/*.gemspec"
+gem "okf-html",       git: "https://github.com/br3nt/okf-html.git", glob: "okf-html/*.gemspec"
+gem "okf-html-rails", git: "https://github.com/br3nt/okf-html.git", glob: "okf-html-rails/*.gemspec"
 ```
 
 (The two gemspecs live in subdirectories of the one repo, hence `glob:`. Pin a
@@ -101,7 +102,8 @@ class + id (`workspacenode-42/<uuid>.html`), with a derived index over it. Swap
 
 ## What is done vs. not
 
-Done and tested (pure core 34 runs, engine 5 runs, notes_app 137 runs green):
+Done and tested (pure core 77 runs, engine 20 runs green — see each gem's
+`bundle exec rake test`):
 
 - The pure format: `OKF::Document` (render/parse), `Vocabulary`, `Template`,
   `TemplateAssociation`.
@@ -109,17 +111,26 @@ Done and tested (pure core 34 runs, engine 5 runs, notes_app 137 runs green):
   rebuildable from the store — also resolves collection membership), and
   `Repository` (the deep facade above).
 - The engine foundation: `OKF::Container`, `OKF::Engine`, configuration.
+- The web layer's editor and graph: the engine ships the Tiptap/ProseMirror
+  note editor (`app/assets/javascripts/okf/editor.js`) and the force-directed
+  graph visualiser (`app/assets/javascripts/okf/graph.js`), each with its own
+  stylesheet, as no-build JST components (`app/views/okf/_components.html.erb`).
+  See the root and engine READMEs for how a host mounts them.
+- An ActiveRecord-backed `OKF::Index` (`OKF::Rails::Index`, tested in
+  `test/okf/index_ar_test.rb`): a SQL-backed, workspace-global index
+  (`okf_notes` / `okf_edges` / `okf_taggings`) that scopes to a container, a
+  subtree id-set, or `:global` — this is what makes app-wide tags and
+  cross-node search real. `rails g okf:install && rails db:migrate`, then
+  point `OKF.config.index_builder` at it (see the engine README's "workspace-
+  global SQL index" section).
 
 Deliberately NOT done — these are waiting on your feedback:
 
-- An ActiveRecord-backed `OKF::Index`. The default index is in-memory and
-  rebuilt per container; it does not model app-global tags well (tags currently
-  live inside one container's index). This is exactly where your "tags are
-  global app-wide" requirement bites — so the AR index schema is the first thing
-  your integration should pressure-test.
-- The web layer (controllers, routes `/n` `/tags` `/templates` `/vocabulary`,
-  the Tiptap/JST editor, CSS). It's being ported against notes_app as the live
-  host. If agent_app needs UI, say so — it may pull that port forward.
+- Controllers and routes (`/n` `/tags` `/templates` `/vocabulary`). By design
+  these stay host-owned — the engine ships the editor/graph assets and the
+  `OKF::Container` concern, but a host writes its own controllers against
+  `node.okf.*` (see notes_app for the reference wiring). If agent_app wants a
+  ready-made controller set rather than writing its own, say so.
 - The collection-per-node wiring for your hierarchy. The pieces exist
   (`Index#members`, `containing_collections`, nested collections) but the
   node→collection mapping is host code you'll write — and a good source of
@@ -127,9 +138,10 @@ Deliberately NOT done — these are waiting on your feedback:
 
 ## What to bring back (the feedback that matters)
 
-1. Tags global across nodes: does the per-container index force you into
-   awkward workarounds? What would the AR-backed, app-global index need to look
-   like for agent_app?
+1. Tags global across nodes: the AR-backed `OKF::Rails::Index` already scopes
+   `all_tags`/`tagged`/`search` to a container, a subtree, or `:global` — does
+   that shape actually fit agent_app's node hierarchy, or does app-wide tagging
+   need something the schema doesn't offer yet?
 2. The node→collection mapping for descendant bundling: is
    `containing_collections` / `Index#members` enough, or does the library need a
    richer scope abstraction?
