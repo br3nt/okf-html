@@ -8,6 +8,30 @@ Each release carries its own **Upgrading** notes inline (what a consumer wires u
 to adopt the change); the full how-to for each capability is in the engine
 `README.md`. To pin a release, see the git/tag refs in the install instructions.
 
+## [0.1.4] — 2026-07-02
+
+### Added
+
+- Conformance fixtures (`fixtures/parse.yml`, `fixtures/render.yml`) covering the
+  SPEC.md examples, wired into `okf-html`'s test suite via
+  `test/conformance_fixtures_test.rb` so the spec and the implementation can't
+  silently drift. `fixtures/README.md` documents the fixture format for other
+  language implementations.
+- `llms.txt` for LLM-assisted consumers, and `AGENTS.md` for agents working in
+  this repo.
+- The `okf-html` authoring skill (`.claude/skills/okf-html/SKILL.md`), referenced
+  from `llms.txt`.
+
+### Changed
+
+- `INTEGRATION_BRIEF.md` and both README.md files corrected to link to the real
+  SPEC.md sections and describe current behaviour truthfully (docs-only fix, no
+  behaviour change).
+
+### Upgrading
+
+- None. Docs and test infrastructure only — no API or storage-format change.
+
 ## [0.1.3] — 2026-06-29
 
 ### Added
@@ -127,6 +151,7 @@ embed notes.
   checklist.
 - `INTEGRATION_BRIEF.md` — for new consumers.
 
+[0.1.4]: https://github.com/br3nt/okf-html/releases/tag/v0.1.4
 [0.1.3]: https://github.com/br3nt/okf-html/releases/tag/v0.1.3
 [0.1.2]: https://github.com/br3nt/okf-html/releases/tag/v0.1.2
 [0.1.1]: https://github.com/br3nt/okf-html/releases/tag/v0.1.1
