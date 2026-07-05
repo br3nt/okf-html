@@ -28,6 +28,14 @@ to adopt the change); the full how-to for each capability is in the engine
   exactly like the in-memory one, with no per-request document parsing.
   `rails g okf:install` now also writes
   `add_template_query_support_to_okf_index.rb`, a second, additive migration.
+- **Schema-optional**: `OKF::Rails::Index` works against a pre-0.1.5 schema
+  too — every read/write of `template_uuid`/metadata is guarded on the column/
+  table actually existing (`Index.template_uuid_supported?` /
+  `.metadata_supported?`, memoized), so upgrading the gem alone (a path-gem
+  sibling checkout picks up the new version before its migration runs) never
+  raises; the feature is simply unavailable (`template_uuid` nil, `metadata`
+  `[]`) until the host runs the migration. `Index.reset_schema_support!` clears
+  the memo for a host whose test suite rebuilds the schema at runtime.
 
 ### Upgrading
 
@@ -40,7 +48,10 @@ to adopt the change); the full how-to for each capability is in the engine
   overwrite `config/initializers/okf.rb`, copy just
   `add_template_query_support_to_okf_index.rb.tt` from
   `lib/generators/okf/install/templates/` by hand. `reconcile` backfills the
-  new columns/table for notes indexed before the upgrade.
+  new columns/table for notes indexed before the upgrade. Not required
+  immediately — the gem runs against the old schema too (see
+  schema-optional, above); migrate whenever you want `type:`/`meta:` to
+  start working against the SQL index.
 
 ## [0.1.4] — 2026-07-02
 

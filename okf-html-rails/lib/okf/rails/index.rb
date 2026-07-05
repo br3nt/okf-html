@@ -43,6 +43,34 @@ module OKF
       Entry = OKF::Index::Entry
       Backlink = OKF::Backlink
 
+      # 0.1.5 added template_uuid (a column on okf_notes) and metadata (the new
+      # okf_note_metadata table). A host that hasn't yet run the additive
+      # migration (add_template_query_support_to_okf_index) still has the
+      # pre-0.1.5 schema, so every read/write of either is guarded on the
+      # schema actually being there — the feature is simply unavailable
+      # (template_uuid nil, metadata []) until the host migrates, rather than
+      # an ActiveModel::UnknownAttributeError / missing-table error.
+      #
+      # Memoized (checked once, not per call/row) with a reset for hosts whose
+      # test suite (re)builds the schema at runtime, where the cached answer
+      # from an earlier run/connection would go stale — call reset_schema_
+      # support! after such a rebuild (a test_helper setup hook, typically).
+      def self.template_uuid_supported?
+        @template_uuid_supported = NoteRecord.column_names.include?("template_uuid") if @template_uuid_supported.nil?
+        @template_uuid_supported
+      end
+
+      def self.metadata_supported?
+        @metadata_supported = ActiveRecord::Base.connection.table_exists?("okf_note_metadata") if @metadata_supported.nil?
+        @metadata_supported
+      end
+
+      def self.reset_schema_support!
+        @template_uuid_supported = nil
+        @metadata_supported = nil
+        NoteRecord.reset_column_information
+      end
+
       # Persistent: it is its own truth, so the Repository does not reset and
       # rebuild it on every instantiation (unlike the in-memory index).
       def ephemeral? = false
@@ -50,7 +78,7 @@ module OKF
       def reset
         Edge.delete_all
         Tagging.delete_all
-        Metadatum.delete_all
+        Metadatum.delete_all if self.class.metadata_supported?
         NoteRecord.delete_all
         self
       end
@@ -72,9 +100,9 @@ module OKF
         record.assign_attributes(
           slug: entry.slug, title: entry.title, effective_title: entry.effective_title,
           body_text: strip_tags(entry.body), pinned: entry.pinned, template: entry.template,
-          template_uuid: entry.template_uuid,
           note_created_at: entry.created_at, note_updated_at: entry.updated_at
         )
+        record.template_uuid = entry.template_uuid if self.class.template_uuid_supported?
         record.save!
 
         Edge.where(source_uuid: entry.uuid).delete_all
@@ -85,12 +113,14 @@ module OKF
         Tagging.where(note_uuid: entry.uuid).delete_all
         entry.tags.uniq.each { |tag| Tagging.create!(note_uuid: entry.uuid, tag: tag) }
 
-        Metadatum.where(note_uuid: entry.uuid).delete_all
-        Array(entry.metadata).each do |field|
-          name = field["name"] || field[:name]
-          next if name.blank?
-          Metadatum.create!(note_uuid: entry.uuid, name: name.to_s,
-            value: (field["value"] || field[:value]).to_s, scheme: (field["scheme"] || field[:scheme]).presence)
+        if self.class.metadata_supported?
+          Metadatum.where(note_uuid: entry.uuid).delete_all
+          Array(entry.metadata).each do |field|
+            name = field["name"] || field[:name]
+            next if name.blank?
+            Metadatum.create!(note_uuid: entry.uuid, name: name.to_s,
+              value: (field["value"] || field[:value]).to_s, scheme: (field["scheme"] || field[:scheme]).presence)
+          end
         end
 
         to_entry(record)
@@ -99,7 +129,7 @@ module OKF
       def remove(uuid)
         Edge.where(source_uuid: uuid).delete_all
         Tagging.where(note_uuid: uuid).delete_all
-        Metadatum.where(note_uuid: uuid).delete_all
+        Metadatum.where(note_uuid: uuid).delete_all if self.class.metadata_supported?
         record = NoteRecord.find_by(uuid: uuid)
         record&.destroy
         record && to_entry(record)
@@ -193,7 +223,8 @@ module OKF
           container: record.container,
           outgoing: edges.map { |e| { rel: e.rel, href: "#{CANONICAL_PREFIX}#{e.target_ref}" } },
           member_hrefs: members.map { |e| "#{CANONICAL_PREFIX}#{e.target_ref}" },
-          template_uuid: record.template_uuid, metadata: metadata_for(record.uuid)
+          template_uuid: (record.template_uuid if self.class.template_uuid_supported?),
+          metadata: metadata_for(record.uuid)
         )
       end
 
@@ -202,6 +233,7 @@ module OKF
       end
 
       def metadata_for(uuid)
+        return [] unless self.class.metadata_supported?
         Metadatum.where(note_uuid: uuid).order(:name).map { |m| { "name" => m.name, "value" => m.value, "scheme" => m.scheme } }
       end
 
