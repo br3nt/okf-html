@@ -61,11 +61,28 @@ class OKF::Rails::IndexARTest < Minitest::Test
     refute_nil entry.created_at
   end
 
+  def test_template_uuid_and_metadata_round_trip_through_sql
+    add("u4", "instance", "Instance", container: "node-1", template_uuid: "u1",
+      metadata: [ { "name" => "status", "value" => "want" }, { "name" => "rating", "value" => "5", "scheme" => "integer" } ])
+    entry = @index.resolve("u4")
+    assert_equal "u1", entry.template_uuid
+    assert_equal [ { "name" => "rating", "value" => "5", "scheme" => "integer" },
+                   { "name" => "status", "value" => "want", "scheme" => nil } ],
+                 entry.metadata.sort_by { |f| f["name"] }
+  end
+
+  def test_reindex_replaces_metadata_rather_than_accumulating
+    add("u4", "instance", "Instance", metadata: [ { "name" => "status", "value" => "want" } ])
+    add("u4", "instance", "Instance", metadata: [ { "name" => "status", "value" => "done" } ])
+    assert_equal [ { "name" => "status", "value" => "done", "scheme" => nil } ], @index.resolve("u4").metadata
+  end
+
   private
 
-  def add(uuid, slug, title, container: nil, tags: [], content: "")
+  def add(uuid, slug, title, container: nil, tags: [], content: "", template_uuid: nil, metadata: [])
     note = FakeNote.new(uuid: uuid, slug: slug, effective_title: title, tag_names: tags,
-      content: content, created_at: Time.utc(2026, 1, 1), updated_at: Time.utc(2026, 1, 2))
+      content: content, created_at: Time.utc(2026, 1, 1), updated_at: Time.utc(2026, 1, 2),
+      template_uuid: template_uuid, metadata: metadata)
     @index.add(OKF::Document.render(note), container: container)
   end
 end

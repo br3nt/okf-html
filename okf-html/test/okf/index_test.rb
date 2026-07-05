@@ -28,6 +28,14 @@ class OKF::IndexTest < Minitest::Test
     assert_equal @index.all.map(&:uuid), @index.search(nil).map(&:uuid)
   end
 
+  def test_entries_carry_template_uuid_and_metadata
+    @index.add(doc(uuid: "ut", slug: "instance", template_uuid: "ua",
+      metadata: [ { "name" => "status", "value" => "want" } ], content: "<p>x</p>"))
+    entry = @index.resolve("ut")
+    assert_equal "ua", entry.template_uuid
+    assert_equal [ { "name" => "status", "value" => "want" } ], entry.metadata
+  end
+
   def test_entries_carry_timestamps_for_cheap_listing
     t = Time.utc(2026, 6, 1, 9, 0, 0)
     @index.add(doc(uuid: "ut", slug: "stamped", title: "Stamped",

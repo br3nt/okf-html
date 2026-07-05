@@ -11,8 +11,10 @@ module OKF
   #     .apply(index, scope: :global)
   #
   # Fields: tag (tag:in:a,b / tag:none:a,b), rel (outgoing), inbound (rel inbound),
-  # collection (member of), pinned, template, created/updated (>,<, A..B, last:Nd,
-  # or a bare day), text (keyword, the default), fuzzy.
+  # collection (member of), pinned, template, type (instance-of a template, by its
+  # uuid or slug — SPEC §9.2), meta (a custom metadata field, meta:name:value —
+  # SPEC §3), created/updated (>,<, A..B, last:Nd, or a bare day), text (keyword,
+  # the default), fuzzy.
   class Filter
     def self.parse(query, now: Time.now)
       tokens = query.to_s.scan(/\S+/)
@@ -50,6 +52,8 @@ module OKF
       when "collection" then ->(e, i) { i.members(rest).any? { |m| m.uuid == e.uuid } }
       when "pinned"     then ->(e, _i) { !!e.pinned == truthy(rest) }
       when "template"   then ->(e, _i) { !!e.template == truthy(rest) }
+      when "type"       then type_predicate(rest)
+      when "meta"       then meta_predicate(rest)
       when "created"    then date_predicate(:created_at, rest, now)
       when "updated"    then date_predicate(:updated_at, rest, now)
       when "text"       then keyword(rest)
@@ -64,6 +68,34 @@ module OKF
       when "none" then ->(e, _i) { (e.tags & list.split(",")).empty? }
       else ->(e, _i) { e.tags.include?(rest) }
       end
+    end
+
+    # type:<slug-or-uuid> — instances of the named template (§9.2). Resolved
+    # through the index so either the template's slug (the common case, e.g.
+    # type:media/movie) or its raw uuid works; falls back to a literal uuid
+    # match when the value doesn't resolve (an already-known uuid, or a
+    # deliberately-missing template).
+    def self.type_predicate(rest)
+      ->(e, i) { e.template_uuid.present? && e.template_uuid == (i.resolve(rest)&.uuid || rest) }
+    end
+
+    # meta:name:value — a custom metadata field (§3) equals value. meta:name
+    # (no value) matches when the field is present with any value.
+    def self.meta_predicate(rest)
+      name, value = rest.split(":", 2)
+      ->(e, _i) {
+        Array(e.metadata).any? { |f|
+          field_name(f) == name && (value.nil? || field_value(f) == value)
+        }
+      }
+    end
+
+    def self.field_name(field)
+      (field["name"] || field[:name]).to_s
+    end
+
+    def self.field_value(field)
+      (field["value"] || field[:value]).to_s
     end
 
     # created:/updated: with >, <, A..B, last:Nd (days), or a bare day.

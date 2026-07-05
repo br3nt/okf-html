@@ -1,0 +1,20 @@
+# Additive to create_okf_index.rb: SPEC §9.2 (template_uuid, "instance of
+# type X") and §3 (custom metadata) surfaced as queryable columns, so
+# OKF::Filter's type:/meta: predicates work against the SQL-backed index the
+# same way they already work against the in-memory one. Files remain truth;
+# `reconcile` rebuilds these from the documents on disk.
+class AddTemplateQuerySupportToOkfIndex < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    add_column :okf_notes, :template_uuid, :string
+    add_index :okf_notes, :template_uuid
+
+    create_table :okf_note_metadata do |t|
+      t.string :note_uuid, null: false
+      t.string :name, null: false
+      t.string :value
+      t.string :scheme
+    end
+    add_index :okf_note_metadata, :note_uuid
+    add_index :okf_note_metadata, [ :note_uuid, :name ]
+  end
+end

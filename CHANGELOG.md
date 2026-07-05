@@ -8,6 +8,40 @@ Each release carries its own **Upgrading** notes inline (what a consumer wires u
 to adopt the change); the full how-to for each capability is in the engine
 `README.md`. To pin a release, see the git/tag refs in the install instructions.
 
+## [0.1.5] — 2026-07-05
+
+### Added
+
+- `OKF::Index::Entry` now carries `template_uuid` and `metadata` (SPEC §9.2 and
+  §3), populated from the parsed document alongside the fields it already
+  carried — so a host can ask "instances of this type" and "notes whose field
+  X is Y" without re-parsing every document. `OKF::Filter` gains two
+  predicates that use them: `type:<slug-or-uuid>` (instances of a template,
+  resolved by slug or uuid) and `meta:<name>` / `meta:<name>:<value>` (a
+  custom metadata field is present, or equals a value). Pure Ruby, no schema
+  change for the in-memory index (mirrors how 0.1.2 added `pinned:`/`template:`
+  the same way).
+- `OKF::Rails::Index` (the SQL-backed index) now persists `template_uuid` as a
+  column on `okf_notes` and custom metadata fields in a new `okf_note_metadata`
+  table (`note_uuid`, `name`, `value`, `scheme`), rewritten on every reindex the
+  same way `okf_taggings` already is — so `type:`/`meta:` filter the SQL index
+  exactly like the in-memory one, with no per-request document parsing.
+  `rails g okf:install` now also writes
+  `add_template_query_support_to_okf_index.rb`, a second, additive migration.
+
+### Upgrading
+
+- In-memory index / `OKF::Filter`: none — new fields default to blank, new
+  predicates are additive.
+- SQL-backed index: run `rails g okf:install` again to fetch the new migration
+  template, then `rails db:migrate`. An install that already has the SQL index
+  need only pick up the one new file (the pre-existing `create_okf_index.rb`
+  migration is untouched and won't re-run); if the generator refuses to
+  overwrite `config/initializers/okf.rb`, copy just
+  `add_template_query_support_to_okf_index.rb.tt` from
+  `lib/generators/okf/install/templates/` by hand. `reconcile` backfills the
+  new columns/table for notes indexed before the upgrade.
+
 ## [0.1.4] — 2026-07-02
 
 ### Added
@@ -151,6 +185,7 @@ embed notes.
   checklist.
 - `INTEGRATION_BRIEF.md` — for new consumers.
 
+[0.1.5]: https://github.com/br3nt/okf-html/releases/tag/v0.1.5
 [0.1.4]: https://github.com/br3nt/okf-html/releases/tag/v0.1.4
 [0.1.3]: https://github.com/br3nt/okf-html/releases/tag/v0.1.3
 [0.1.2]: https://github.com/br3nt/okf-html/releases/tag/v0.1.2

@@ -21,9 +21,13 @@ module OKF
     # A note's place in the index: identity plus the parsed graph edges. Hrefs
     # are kept as authored and resolved lazily, so a member or link target that
     # arrives later still resolves once it is indexed.
+    # template_uuid/metadata (SPEC §9.2/§3) let a host query "instances of this
+    # type" and "instances whose metadata field X is Y" without re-parsing every
+    # document — the type system (§9) and custom fields (§3) surfaced for
+    # filtering (OKF::Filter's type:/meta: predicates), not just for rendering.
     Entry = Struct.new(:uuid, :slug, :title, :effective_title, :tags, :pinned,
                        :template, :body, :created_at, :updated_at, :container,
-                       :outgoing, :member_hrefs, keyword_init: true)
+                       :outgoing, :member_hrefs, :template_uuid, :metadata, keyword_init: true)
 
     # Parse a document's html into an Entry without storing it, so any index
     # implementation (this one, the engine's SQL-backed one) shares one parser.
@@ -40,7 +44,8 @@ module OKF
         pinned: parsed.pinned?, template: parsed.template?, body: parsed.body,
         created_at: parsed.created_at, updated_at: parsed.updated_at,
         container: container,
-        outgoing: outgoing_links(fragment), member_hrefs: member_hrefs(fragment)
+        outgoing: outgoing_links(fragment), member_hrefs: member_hrefs(fragment),
+        template_uuid: parsed.template_uuid, metadata: parsed.metadata
       )
     end
 

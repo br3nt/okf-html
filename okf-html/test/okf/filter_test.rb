@@ -62,13 +62,31 @@ class OKF::FilterTest < Minitest::Test
     assert_equal %w[u1], uuids("collection:guide")
   end
 
+  def test_type_matches_instances_by_template_slug_or_uuid
+    add("um", "movie-tmpl", "Movie", template: true)
+    add("ui1", "dune", "Dune", template_uuid: "um")
+    add("ui2", "other", "Other", template_uuid: "different-uuid")
+    assert_equal %w[ui1], uuids("type:movie-tmpl") # resolved via the template's slug
+    assert_equal %w[ui1], uuids("type:um")         # a raw uuid also works
+    assert_equal %w[ui2], uuids("type:different-uuid") # falls back to a literal match
+  end
+
+  def test_meta_matches_a_custom_field_name_and_optional_value
+    add("uw", "want-it", "Want it", metadata: [ { "name" => "status", "value" => "want" } ])
+    add("ud", "done-it", "Done it", metadata: [ { "name" => "status", "value" => "done" } ])
+    assert_equal %w[ud uw], uuids("meta:status")
+    assert_equal %w[uw], uuids("meta:status:want")
+  end
+
   private
 
   def t(day) = Time.utc(2026, 1, day, 12, 0, 0)
 
-  def add(uuid, slug, title, tags: [], pinned: false, template: false, created: nil, updated: nil, content: "")
+  def add(uuid, slug, title, tags: [], pinned: false, template: false, created: nil, updated: nil,
+           content: "", template_uuid: nil, metadata: [])
     note = FakeNote.new(uuid: uuid, slug: slug, effective_title: title, tag_names: tags,
-      pinned: pinned, template: template, created_at: created, updated_at: updated, content: content)
+      pinned: pinned, template: template, created_at: created, updated_at: updated, content: content,
+      template_uuid: template_uuid, metadata: metadata)
     @index.add(OKF::Document.render(note))
   end
 end

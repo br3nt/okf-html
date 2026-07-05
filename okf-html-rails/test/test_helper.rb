@@ -18,6 +18,7 @@ ActiveRecord::Schema.define do
     t.text :body_text
     t.boolean :pinned, null: false, default: false
     t.boolean :template, null: false, default: false
+    t.string :template_uuid
     t.string :container
     t.datetime :note_created_at
     t.datetime :note_updated_at
@@ -26,6 +27,7 @@ ActiveRecord::Schema.define do
   add_index :okf_notes, :uuid, unique: true
   add_index :okf_notes, :slug
   add_index :okf_notes, :container
+  add_index :okf_notes, :template_uuid
 
   create_table :okf_edges, force: true do |t|
     t.string :source_uuid, null: false
@@ -43,6 +45,15 @@ ActiveRecord::Schema.define do
   end
   add_index :okf_taggings, :tag
   add_index :okf_taggings, [ :note_uuid, :tag ], unique: true
+
+  create_table :okf_note_metadata, force: true do |t|
+    t.string :note_uuid, null: false
+    t.string :name, null: false
+    t.string :value
+    t.string :scheme
+  end
+  add_index :okf_note_metadata, :note_uuid
+  add_index :okf_note_metadata, [ :note_uuid, :name ]
 end
 
 # A stand-in for a host's owner model. A real host includes OKF::Container in an

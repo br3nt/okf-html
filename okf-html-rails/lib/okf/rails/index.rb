@@ -31,6 +31,15 @@ module OKF
         self.table_name = "okf_taggings"
       end
 
+      # One custom metadata field (SPEC §3) on a note, in its own table so a
+      # field's name/value is queryable (OKF::Filter's meta: predicate) without
+      # re-parsing the document. A note's full metadata list is these rows,
+      # order not significant (metadata is a set of named fields, not a
+      # sequence).
+      class Metadatum < ActiveRecord::Base
+        self.table_name = "okf_note_metadata"
+      end
+
       Entry = OKF::Index::Entry
       Backlink = OKF::Backlink
 
@@ -41,6 +50,7 @@ module OKF
       def reset
         Edge.delete_all
         Tagging.delete_all
+        Metadatum.delete_all
         NoteRecord.delete_all
         self
       end
@@ -62,6 +72,7 @@ module OKF
         record.assign_attributes(
           slug: entry.slug, title: entry.title, effective_title: entry.effective_title,
           body_text: strip_tags(entry.body), pinned: entry.pinned, template: entry.template,
+          template_uuid: entry.template_uuid,
           note_created_at: entry.created_at, note_updated_at: entry.updated_at
         )
         record.save!
@@ -74,12 +85,21 @@ module OKF
         Tagging.where(note_uuid: entry.uuid).delete_all
         entry.tags.uniq.each { |tag| Tagging.create!(note_uuid: entry.uuid, tag: tag) }
 
+        Metadatum.where(note_uuid: entry.uuid).delete_all
+        Array(entry.metadata).each do |field|
+          name = field["name"] || field[:name]
+          next if name.blank?
+          Metadatum.create!(note_uuid: entry.uuid, name: name.to_s,
+            value: (field["value"] || field[:value]).to_s, scheme: (field["scheme"] || field[:scheme]).presence)
+        end
+
         to_entry(record)
       end
 
       def remove(uuid)
         Edge.where(source_uuid: uuid).delete_all
         Tagging.where(note_uuid: uuid).delete_all
+        Metadatum.where(note_uuid: uuid).delete_all
         record = NoteRecord.find_by(uuid: uuid)
         record&.destroy
         record && to_entry(record)
@@ -172,12 +192,17 @@ module OKF
           created_at: record.note_created_at, updated_at: record.note_updated_at,
           container: record.container,
           outgoing: edges.map { |e| { rel: e.rel, href: "#{CANONICAL_PREFIX}#{e.target_ref}" } },
-          member_hrefs: members.map { |e| "#{CANONICAL_PREFIX}#{e.target_ref}" }
+          member_hrefs: members.map { |e| "#{CANONICAL_PREFIX}#{e.target_ref}" },
+          template_uuid: record.template_uuid, metadata: metadata_for(record.uuid)
         )
       end
 
       def tags_for(uuid)
         Tagging.where(note_uuid: uuid).pluck(:tag)
+      end
+
+      def metadata_for(uuid)
+        Metadatum.where(note_uuid: uuid).order(:name).map { |m| { "name" => m.name, "value" => m.value, "scheme" => m.scheme } }
       end
 
       def strip_tags(html)
